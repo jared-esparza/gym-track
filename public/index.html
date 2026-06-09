@@ -127,6 +127,7 @@
             <button type="submit">Guardar registro</button>
           </form>
         </section>
+
       </section>
 
       <section id="historyTab" class="screen">
@@ -220,6 +221,37 @@
               <button type="button" id="cancelManageExerciseBtn" class="ghost">Cancelar</button>
             </div>
           </form>
+        </section>
+
+        <section id="dataSection" class="panel">
+          <div class="screen-head section-heading">
+            <div>
+              <p class="eyebrow">Backup</p>
+              <h2>Datos</h2>
+              <p class="muted">Exporta una copia restaurable o importa ejercicios y backups JSON.</p>
+            </div>
+          </div>
+          <div class="data-actions">
+            <a id="exportJsonBtn" class="button-link" href="api.php?action=export&format=json">Exportar backup JSON</a>
+            <a class="button-link secondary" href="api.php?action=export&format=csv&type=exercises">Ejercicios CSV</a>
+            <a class="button-link secondary" href="api.php?action=export&format=csv&type=workouts">Entrenamientos CSV</a>
+            <a class="button-link secondary" href="api.php?action=export&format=csv&type=records">Registros CSV</a>
+          </div>
+          <form id="importForm" class="stack inline-form">
+            <h3>Importar datos</h3>
+            <label>Archivo JSON o CSV<input id="importFileInput" name="file" type="file" accept=".json,.csv,application/json,text/csv" required></label>
+            <button type="submit" class="secondary">Previsualizar importacion</button>
+          </form>
+          <section id="importPreviewPanel" class="inline-form hidden">
+            <h3>Previsualizacion</h3>
+            <div id="importSummary" class="summary-grid"></div>
+            <div id="importWarnings" class="import-list"></div>
+            <div id="importErrors" class="import-list error-list"></div>
+            <div class="row">
+              <button id="confirmImportBtn" type="button">Confirmar importacion</button>
+              <button id="cancelImportBtn" type="button" class="ghost">Cancelar</button>
+            </div>
+          </section>
         </section>
       </section>
 

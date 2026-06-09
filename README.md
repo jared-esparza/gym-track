@@ -14,6 +14,8 @@ The project focuses on a practical workout flow: choose a routine, pick a muscle
 - Personal records summary with best historical mark and latest entry.
 - History view with Chart.js daily-best graph and editable records.
 - Management view for workouts and exercises.
+- JSON backup export/import for restorable user data.
+- CSV export for spreadsheets and CSV exercise import.
 - Local email logging for development with `APP_ENV=local`.
 
 ## Screens and Workflow
@@ -21,7 +23,7 @@ The project focuses on a practical workout flow: choose a routine, pick a muscle
 - **Auth**: login, registration, email verification, forgotten password and reset password.
 - **Train**: select active workout, muscle group and exercise, then save a new mark.
 - **History**: filter by group/exercise, inspect the graph, edit or delete records.
-- **Management**: create, edit and delete workouts and exercises.
+- **Management**: create, edit and delete workouts/exercises, export backups and import data.
 
 After saving a mark, the selected workout remains active and the app clears the group/exercise selection so the next record can be entered for a different exercise.
 
@@ -85,6 +87,30 @@ With `APP_ENV=local`, verification and reset emails are written to:
 ```text
 storage/logs/mail.log
 ```
+
+## Data Export and Import
+
+The app can export a complete JSON backup that can be imported again by the same app. It includes workouts, exercises and historical records.
+
+```json
+{
+  "schema": "gym-tracker-export",
+  "version": 1,
+  "workouts": [{ "name": "Push", "muscle_groups": ["Pectoral", "Hombro"] }],
+  "exercises": [{ "muscle_group": "Pectoral", "name": "Press banca", "metric_type": "kg", "notes": "" }],
+  "records": [{ "muscle_group": "Pectoral", "exercise": "Press banca", "workout": "Push", "value": "80.00", "metric_type": "kg", "note": "", "recorded_at": "2026-06-09 10:00:00" }]
+}
+```
+
+CSV export is also available for spreadsheets. In V1, CSV import supports exercises only:
+
+```csv
+muscle_group,name,metric_type,notes
+Pectoral,Press banca,kg,Barra olimpica
+Cardio,Cinta,km,
+```
+
+Imports are previewed before writing data. Existing workouts and exercises are merged instead of duplicated.
 
 ## Example `.env`
 

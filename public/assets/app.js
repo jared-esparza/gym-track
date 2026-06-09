@@ -6,6 +6,7 @@ const state = {
   activeWorkoutGroups: [],
   activeExercise: null,
   manageExercises: [],
+  importPreviewToken: null,
   chart: null,
 };
 
@@ -189,6 +190,9 @@ function bindApp() {
   $('workoutForm').addEventListener('submit', saveWorkout);
   $('exerciseManagementForm').addEventListener('submit', saveManagedExercise);
   $('recordEditForm').addEventListener('submit', saveRecordEdit);
+  $('importForm').addEventListener('submit', previewImport);
+  $('confirmImportBtn').addEventListener('click', confirmImport);
+  $('cancelImportBtn').addEventListener('click', cancelImport);
 }
 
 function switchTab(tabId) {
@@ -539,6 +543,78 @@ async function refreshExerciseSelectorsAfterManagedSave(groupId) {
 
 function hideManageExerciseForm() {
   $('exerciseManagementForm').classList.add('hidden');
+}
+
+async function previewImport(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const file = $('importFileInput').files[0];
+  if (!file) {
+    showMessage('Selecciona un archivo para importar.', 'error');
+    return;
+  }
+
+  try {
+    const payload = new FormData(form);
+    const response = await fetch('api.php?action=import-preview', {
+      method: 'POST',
+      credentials: 'same-origin',
+      body: payload,
+    });
+    const data = await response.json();
+    if (!data.ok) throw new Error(data.error || 'Error inesperado');
+    state.importPreviewToken = data.import_token || null;
+    renderImportPreview(data);
+  } catch (error) {
+    state.importPreviewToken = null;
+    renderImportPreview({ summary: null, errors: [error.message], warnings: [] });
+    showMessage(error.message, 'error');
+  }
+}
+
+function renderImportPreview(data) {
+  const summary = data.summary || {};
+  const errors = data.errors || [];
+  const warnings = data.warnings || [];
+  $('importPreviewPanel').classList.remove('hidden');
+  $('importSummary').innerHTML = [
+    ['Entrenamientos', summary.workouts || 0],
+    ['Ejercicios', summary.exercises || 0],
+    ['Registros', summary.records || 0],
+    ['Errores', errors.length],
+  ].map(([label, value]) => `<div class="summary-item"><span class="label">${label}</span><strong>${value}</strong></div>`).join('');
+  $('importWarnings').innerHTML = warnings.length ? `<p class="muted">${warnings.map(escapeHtml).join('<br>')}</p>` : '';
+  $('importErrors').innerHTML = errors.length ? `<p>${errors.map(escapeHtml).join('<br>')}</p>` : '';
+  $('confirmImportBtn').disabled = errors.length > 0 || !state.importPreviewToken;
+}
+
+async function confirmImport() {
+  if (!state.importPreviewToken) return;
+  try {
+    const data = await send('import-confirm', { import_token: state.importPreviewToken });
+    state.importPreviewToken = null;
+    $('importForm').reset();
+    $('importPreviewPanel').classList.add('hidden');
+    await loadBootstrap();
+    showMessage(importSummaryMessage(data.summary));
+  } catch (error) {
+    showMessage(error.message, 'error');
+  }
+}
+
+async function cancelImport() {
+  try {
+    await send('import-cancel');
+  } catch (error) {
+    showMessage(error.message, 'error');
+  }
+  state.importPreviewToken = null;
+  $('importForm').reset();
+  $('importPreviewPanel').classList.add('hidden');
+}
+
+function importSummaryMessage(summary = {}) {
+  return `Importacion aplicada: ${summary.workouts || 0} entrenamientos, ${summary.exercises || 0} ejercicios, ${summary.records || 0} registros.`;
 }
 
 async function loadHistory() {

@@ -197,9 +197,10 @@ Documentación humana del proyecto.
 
 - Gestión:
   - HTML: `manageTab`.
-  - JS: `renderWorkouts()`, `saveWorkout()`, `renderManageExercises()`, `saveManagedExercise()`, `deleteExercise()`.
-  - API: `workouts`, `workout`, `exercises`, `exercise`.
+  - JS: `renderWorkouts()`, `saveWorkout()`, `renderManageExercises()`, `saveManagedExercise()`, `deleteExercise()`, `previewImport()`, `confirmImport()`.
+  - API: `workouts`, `workout`, `exercises`, `exercise`, `export`, `import-preview`, `import-confirm`, `import-cancel`.
   - Nota: el filtro de ejercicios arranca en "Todos los grupos"; solo se envia `muscle_group_id` cuando el usuario elige un grupo concreto.
+  - Nota: el apartado Datos exporta backup JSON restaurable, CSVs de consulta e importa JSON o CSV de ejercicios con previsualizacion.
 
 ## Validaciones recomendadas tras cambios
 

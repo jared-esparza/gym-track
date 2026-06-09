@@ -104,6 +104,11 @@ Datos:
 - `GET api.php?action=exercise-summary&exercise_id=...`
 - `POST/DELETE api.php?action=records`
 - `GET api.php?action=history&exercise_id=...`
+- `GET api.php?action=export&format=json`
+- `GET api.php?action=export&format=csv&type=exercises|workouts|records`
+- `POST api.php?action=import-preview`
+- `POST api.php?action=import-confirm`
+- `POST api.php?action=import-cancel`
 
 Los endpoints protegidos usan `Auth::requireUser()` y validan ownership antes de leer/modificar workouts, exercises y records.
 
@@ -115,6 +120,12 @@ Detalles relevantes:
 - `POST exercise` edita nombre, grupo, tipo de marca y notas si recibe `id`.
 - Si un ejercicio ya tiene registros, no se permite cambiar su `metric_type`.
 - `DELETE exercise` elimina el ejercicio y sus registros asociados por cascada.
+- `GET export&format=json` descarga un backup restaurable con `schema: "gym-tracker-export"`, version 1, entrenamientos, ejercicios y registros.
+- `GET export&format=csv&type=exercises` descarga un CSV importable con columnas `muscle_group,name,metric_type,notes`.
+- `GET export&format=csv&type=workouts|records` descarga CSVs de consulta para hojas de calculo.
+- `POST import-preview` valida un JSON de backup o un CSV de ejercicios y guarda el plan normalizado en sesion con `import_token`.
+- `POST import-confirm` aplica el plan validado en transaccion; `POST import-cancel` descarta la previsualizacion.
+- La importacion fusiona sin duplicar: entrenamientos por nombre, ejercicios por grupo+nombre y registros por ejercicio+entrenamiento+fecha+valor+nota.
 
 ## Flujo UX
 
@@ -140,6 +151,7 @@ Pantallas principales:
   - Apartado de entrenamientos: listar, crear, editar y eliminar.
   - Apartado de ejercicios: listar todos por defecto, filtrar por grupo, crear, editar y eliminar.
   - Al eliminar un ejercicio se avisa de que también se eliminarán todos sus registros de marcas asociados.
+  - Apartado de datos: exportar backup JSON, exportar CSVs e importar con previsualizacion y confirmacion.
 
 Onboarding actual:
 

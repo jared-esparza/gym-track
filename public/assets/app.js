@@ -53,6 +53,20 @@ function fillSelect(select, items, placeholder = 'Selecciona') {
   });
 }
 
+function fillExerciseSelect(select, exercises, placeholder, showGroup = false) {
+  select.innerHTML = `<option value="">${placeholder}</option>`;
+  exercises.forEach((exercise) => {
+    const option = document.createElement('option');
+    option.value = exercise.id;
+    option.textContent = formatExerciseName(exercise, showGroup);
+    select.appendChild(option);
+  });
+}
+
+function formatExerciseName(exercise, showGroup = false) {
+  return showGroup ? `${groupName(exercise.muscle_group_id)} · ${exercise.name}` : exercise.name;
+}
+
 function formData(form) {
   return Object.fromEntries(new FormData(form).entries());
 }
@@ -190,13 +204,12 @@ async function loadBootstrap() {
   renderGroups();
   renderWorkouts();
   fillSelect($('activeWorkoutSelect'), state.workouts, 'Elige entrenamiento');
-  fillSelect($('historyGroupSelect'), state.groups, 'Elige grupo');
-  fillSelect($('manageExerciseGroupSelect'), state.groups, 'Elige grupo');
+  fillSelect($('historyGroupSelect'), state.groups, 'Todos los grupos');
+  fillSelect($('manageExerciseGroupSelect'), state.groups, 'Todos los grupos');
   fillSelect($('exerciseManagementForm').elements.muscle_group_id, state.groups, 'Elige grupo');
   $('onboarding').classList.toggle('hidden', state.workouts.length > 0);
 
   if (selectedManageGroup) $('manageExerciseGroupSelect').value = selectedManageGroup;
-  if (!$('manageExerciseGroupSelect').value && state.groups.length) $('manageExerciseGroupSelect').value = state.groups[0].id;
   await loadManageExercises();
 
   if (state.workouts.length) {
@@ -204,7 +217,7 @@ async function loadBootstrap() {
     await loadActiveWorkout();
   } else {
     fillSelect($('trainGroupSelect'), [], 'Crea un entrenamiento primero');
-    fillSelect($('trainExerciseSelect'), [], 'Elige ejercicio');
+    fillExerciseSelect($('trainExerciseSelect'), [], 'Elige ejercicio');
   }
 }
 
@@ -242,8 +255,8 @@ async function loadActiveWorkout() {
   const data = await api(`workout&id=${encodeURIComponent(workoutId)}`);
   state.activeWorkout = data.workout;
   state.activeWorkoutGroups = state.groups.filter((group) => data.muscle_group_ids.includes(Number(group.id)));
-  fillSelect($('trainGroupSelect'), state.activeWorkoutGroups, 'Elige grupo');
-  $('trainExerciseSelect').innerHTML = '<option value="">Elige ejercicio</option>';
+  fillSelect($('trainGroupSelect'), state.activeWorkoutGroups, 'Todos los grupos del entrenamiento');
+  await loadExercises('train');
 }
 
 async function loadExercises(context) {
@@ -254,12 +267,34 @@ async function loadExercises(context) {
     $('historyPanel').classList.add('hidden');
     hideRecordEditForm();
   }
-  if (!groupSelect.value) {
-    fillSelect(exerciseSelect, [], 'Elige ejercicio');
+  const url = exercisesUrl(context, groupSelect.value);
+  const placeholder = exercisePlaceholder(context, groupSelect.value);
+  if (!url) {
+    fillExerciseSelect(exerciseSelect, [], placeholder);
     return;
   }
-  const data = await api(`exercises&muscle_group_id=${encodeURIComponent(groupSelect.value)}`);
-  fillSelect(exerciseSelect, data.exercises, 'Elige ejercicio');
+  const data = await api(url);
+  const emptyPlaceholder = data.exercises.length ? placeholder : emptyExercisePlaceholder(context, groupSelect.value);
+  fillExerciseSelect(exerciseSelect, data.exercises, emptyPlaceholder, !groupSelect.value);
+}
+
+function exercisesUrl(context, groupId = '') {
+  if (groupId) return `exercises&muscle_group_id=${encodeURIComponent(groupId)}`;
+  if (context === 'train') {
+    const workoutId = $('activeWorkoutSelect').value;
+    return workoutId ? `exercises&workout_id=${encodeURIComponent(workoutId)}` : '';
+  }
+  return 'exercises';
+}
+
+function exercisePlaceholder(context, groupId = '') {
+  if (context === 'train') return groupId ? 'Elige ejercicio' : 'Todos los ejercicios del entrenamiento';
+  return groupId ? 'Elige ejercicio' : 'Todos los ejercicios';
+}
+
+function emptyExercisePlaceholder(context, groupId = '') {
+  if (context === 'train') return 'No hay ejercicios disponibles para este entrenamiento';
+  return groupId ? 'No hay ejercicios en este grupo' : 'No hay ejercicios todavía';
 }
 
 async function createExercise(event) {
@@ -275,7 +310,7 @@ async function createExercise(event) {
     form.reset();
     form.classList.add('hidden');
     await loadExerciseSummary();
-    if ($('manageExerciseGroupSelect').value === payload.muscle_group_id) await loadManageExercises();
+    if (!$('manageExerciseGroupSelect').value || $('manageExerciseGroupSelect').value === payload.muscle_group_id) await loadManageExercises();
   } catch (error) {
     showMessage(error.message, 'error');
   }
@@ -323,8 +358,8 @@ async function saveRecord(event) {
     state.activeExercise = null;
     $('exercisePanel').classList.add('hidden');
     $('trainGroupSelect').value = '';
-    $('trainExerciseSelect').innerHTML = '<option value="">Elige ejercicio</option>';
-    if ($('manageExerciseGroupSelect').value === savedGroupId) await loadManageExercises();
+    await loadExercises('train');
+    if (!$('manageExerciseGroupSelect').value || $('manageExerciseGroupSelect').value === savedGroupId) await loadManageExercises();
   } catch (error) {
     showMessage(error.message, 'error');
   }
@@ -389,17 +424,15 @@ async function loadManageExercises() {
   const groupId = $('manageExerciseGroupSelect').value;
   state.manageExercises = [];
   hideManageExerciseForm();
-  if (!groupId) {
-    $('manageExerciseList').innerHTML = '<p class="muted">Selecciona un grupo muscular.</p>';
-    return;
-  }
-  const data = await api(`exercises&muscle_group_id=${encodeURIComponent(groupId)}`);
+  const url = groupId ? `exercises&muscle_group_id=${encodeURIComponent(groupId)}` : 'exercises';
+  const data = await api(url);
   state.manageExercises = data.exercises;
   renderManageExercises();
 }
 
 function renderManageExercises() {
-  $('manageExerciseList').innerHTML = state.manageExercises.length ? '' : '<p class="empty-state">No hay ejercicios en este grupo. Crea el primero desde el botón Nuevo.</p>';
+  const emptyText = $('manageExerciseGroupSelect').value ? 'No hay ejercicios en este grupo. Crea el primero desde el botón Nuevo.' : 'No hay ejercicios todavía. Crea el primero desde el botón Nuevo.';
+  $('manageExerciseList').innerHTML = state.manageExercises.length ? '' : `<p class="empty-state">${emptyText}</p>`;
   state.manageExercises.forEach((exercise) => {
     const node = document.createElement('article');
     node.className = 'item';
@@ -457,7 +490,7 @@ async function saveManagedExercise(event) {
     payload.metric_type = form.elements.metric_type.value;
     const previousGroup = $('manageExerciseGroupSelect').value;
     await send('exercise', payload);
-    $('manageExerciseGroupSelect').value = payload.muscle_group_id || previousGroup;
+    $('manageExerciseGroupSelect').value = previousGroup ? (payload.muscle_group_id || previousGroup) : '';
     await loadManageExercises();
     await refreshExerciseSelectorsAfterManagedSave(payload.muscle_group_id);
     showMessage('Ejercicio guardado.');
@@ -500,8 +533,8 @@ function clearDeletedExerciseSelections(id) {
 }
 
 async function refreshExerciseSelectorsAfterManagedSave(groupId) {
-  if ($('trainGroupSelect').value === groupId) await loadExercises('train');
-  if ($('historyGroupSelect').value === groupId) await loadExercises('history');
+  if (!$('trainGroupSelect').value || $('trainGroupSelect').value === groupId) await loadExercises('train');
+  if (!$('historyGroupSelect').value || $('historyGroupSelect').value === groupId) await loadExercises('history');
 }
 
 function hideManageExerciseForm() {

@@ -309,16 +309,33 @@ function syncWorkoutGroups(int $workoutId, array $groupIds): void
 function exercises(): never
 {
     $user = Auth::requireUser();
-    $groupId = intParam($_GET, 'muscle_group_id');
-    $stmt = Database::pdo()->prepare('
+    $pdo = Database::pdo();
+    $params = [$user['id']];
+    $where = 'e.user_id = ?';
+    $join = '';
+
+    $groupId = filter_var($_GET['muscle_group_id'] ?? null, FILTER_VALIDATE_INT);
+    $workoutId = filter_var($_GET['workout_id'] ?? null, FILTER_VALIDATE_INT);
+
+    if ($groupId && $groupId > 0) {
+        $where .= ' AND e.muscle_group_id = ?';
+        $params[] = (int) $groupId;
+    } elseif ($workoutId && $workoutId > 0) {
+        assertWorkoutOwner((int) $workoutId, (int) $user['id']);
+        $join = 'JOIN workout_muscle_groups wmg ON wmg.muscle_group_id = e.muscle_group_id AND wmg.workout_id = ?';
+        array_unshift($params, (int) $workoutId);
+    }
+
+    $stmt = $pdo->prepare("
         SELECT e.id, e.muscle_group_id, e.name, e.metric_type, e.notes, COUNT(r.id) AS record_count
         FROM exercises e
+        {$join}
         LEFT JOIN records r ON r.exercise_id = e.id AND r.user_id = e.user_id
-        WHERE e.user_id = ? AND e.muscle_group_id = ?
+        WHERE {$where}
         GROUP BY e.id, e.muscle_group_id, e.name, e.metric_type, e.notes
-        ORDER BY e.name
-    ');
-    $stmt->execute([$user['id'], $groupId]);
+        ORDER BY e.muscle_group_id, e.name
+    ");
+    $stmt->execute($params);
     Response::json(['ok' => true, 'exercises' => $stmt->fetchAll()]);
 }
 

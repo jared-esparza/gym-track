@@ -187,16 +187,19 @@ Documentación humana del proyecto.
   - HTML: `trainTab` en `public/index.html`.
   - JS: `loadActiveWorkout()`, `loadExercises()`, `loadExerciseSummary()`, `saveRecord()`.
   - API: `bootstrap`, `workout`, `exercises`, `exercise-summary`, `records`.
+  - Nota: `loadExercises()` puede cargar por grupo o, si no hay grupo seleccionado, por `workout_id` para mostrar todos los ejercicios permitidos por el entrenamiento activo.
 
 - Histórico:
   - HTML: `historyTab`.
   - JS: `loadHistory()`, `renderHistory()`, `renderHistoryCards()`, `saveRecordEdit()`, `deleteRecord()`.
-  - API: `history`, `records`.
+  - API: `exercises`, `history`, `records`.
+  - Nota: si no hay grupo seleccionado, `exercises` devuelve todos los ejercicios del usuario.
 
 - Gestión:
   - HTML: `manageTab`.
   - JS: `renderWorkouts()`, `saveWorkout()`, `renderManageExercises()`, `saveManagedExercise()`, `deleteExercise()`.
   - API: `workouts`, `workout`, `exercises`, `exercise`.
+  - Nota: el filtro de ejercicios arranca en "Todos los grupos"; solo se envia `muscle_group_id` cuando el usuario elige un grupo concreto.
 
 ## Validaciones recomendadas tras cambios
 

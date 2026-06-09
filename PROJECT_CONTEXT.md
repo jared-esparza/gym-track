@@ -99,7 +99,7 @@ Datos:
 - `GET api.php?action=bootstrap`
 - `GET/POST api.php?action=workouts`
 - `GET/POST/DELETE api.php?action=workout&id=...`
-- `GET api.php?action=exercises&muscle_group_id=...`
+- `GET api.php?action=exercises[&muscle_group_id=...][&workout_id=...]`
 - `POST/DELETE api.php?action=exercise&id=...`
 - `GET api.php?action=exercise-summary&exercise_id=...`
 - `POST/DELETE api.php?action=records`
@@ -109,6 +109,7 @@ Los endpoints protegidos usan `Auth::requireUser()` y validan ownership antes de
 
 Detalles relevantes:
 
+- `GET exercises` acepta filtros opcionales: por `muscle_group_id`, por `workout_id` si se quiere limitar a los grupos de un entrenamiento, o sin filtros para devolver todos los ejercicios del usuario.
 - `GET exercises` devuelve `record_count` para saber si el tipo de marca debe bloquearse en edición.
 - `POST exercise` crea ejercicios si no recibe `id`.
 - `POST exercise` edita nombre, grupo, tipo de marca y notas si recibe `id`.
@@ -123,20 +124,21 @@ Pantallas principales:
   - Login, registro, forgot password y reset password.
 - Entrenar:
   - Elegir entrenamiento activo.
-  - Elegir grupo muscular permitido por ese entrenamiento.
+  - Elegir grupo muscular permitido por ese entrenamiento, o dejarlo en "Todos los grupos del entrenamiento".
+  - Si no hay grupo seleccionado, el selector de ejercicio muestra todos los ejercicios de los grupos incluidos en el entrenamiento activo.
   - Elegir o crear ejercicio.
   - Ver RM, último registro y notas.
   - Guardar marca y nota puntual.
   - Tras guardar una marca, se mantiene el entrenamiento activo pero se limpian grupo, ejercicio y panel para registrar otro ejercicio.
 - Histórico:
-  - Elegir grupo y ejercicio.
+  - Elegir grupo y ejercicio, o dejar el grupo en "Todos los grupos" para escoger cualquier ejercicio.
   - Ver gráfico de mejor marca diaria.
   - Ver registros como tarjetas en móvil y tabla en pantallas amplias.
   - Editar registros con formulario embebido.
   - Eliminar registros con confirmación.
 - Gestión:
   - Apartado de entrenamientos: listar, crear, editar y eliminar.
-  - Apartado de ejercicios: filtrar por grupo, listar, crear, editar y eliminar.
+  - Apartado de ejercicios: listar todos por defecto, filtrar por grupo, crear, editar y eliminar.
   - Al eliminar un ejercicio se avisa de que también se eliminarán todos sus registros de marcas asociados.
 
 Onboarding actual:

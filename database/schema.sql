@@ -81,3 +81,12 @@ CREATE TABLE records (
   INDEX idx_records_exercise_date (exercise_id, recorded_at),
   INDEX idx_records_user_date (user_id, recorded_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE rate_limits (
+  action VARCHAR(80) NOT NULL,
+  identifier VARCHAR(190) NOT NULL,
+  attempts INT UNSIGNED NOT NULL DEFAULT 0,
+  window_started_at INT UNSIGNED NOT NULL,
+  PRIMARY KEY (action, identifier),
+  INDEX idx_rate_limits_window (window_started_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

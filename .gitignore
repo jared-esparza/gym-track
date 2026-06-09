@@ -2,3 +2,6 @@
 /storage/
 /vendor/
 /.superpowers/
+/.composer-cache/
+/.phpunit-sessions/
+/.phpunit.result.cache

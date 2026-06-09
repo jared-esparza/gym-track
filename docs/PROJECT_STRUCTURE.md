@@ -11,6 +11,7 @@ gym-tracker/
 |-- docs/                 Documentación humana del proyecto
 |-- public/               Raíz web: HTML, API, CSS y JS
 |-- storage/              Archivos generados en local, como logs de email
+|-- tests/                Tests PHPUnit de seguridad e importacion
 |-- vendor/               Dependencias Composer
 |-- .env.example          Plantilla de variables de entorno
 |-- .htaccess             Rewrite para hosting compartido
@@ -43,6 +44,18 @@ Contiene clases PHP pequeñas y reutilizables. No define pantallas ni rutas por 
   - Gestiona login/logout de sesión.
   - Expone usuario actual y `requireUser()`.
   - Cualquier endpoint protegido debe pasar por aquí.
+
+- `Security.php`
+  - Genera y valida tokens CSRF.
+  - Centraliza cabeceras de seguridad para respuestas API y descargas.
+
+- `RateLimiter.php`
+  - Registra intentos por accion e identificador en `rate_limits`.
+  - Se usa en auth, verificacion e importaciones.
+
+- `ImportService.php`
+  - Normaliza y valida CSV/JSON de importacion.
+  - Es la parte testeable de la previsualizacion de importacion.
 
 - `Request.php`
   - Normaliza entrada JSON o `POST`.
@@ -113,6 +126,15 @@ Documentación humana del proyecto.
 - `PROJECT_STRUCTURE.md`
   - Esta guía.
 
+### `tests/`
+
+Tests unitarios con PHPUnit.
+
+- `Security/`
+  - CSRF y rate limiting.
+- `ImportExport/`
+  - CSV de ejercicios y JSON de backup importable.
+
 ## Archivos de raíz
 
 - `.env.example`
@@ -130,7 +152,7 @@ Documentación humana del proyecto.
   - Ignora `.env`, `storage/`, `vendor/` y `.superpowers/`.
 
 - `composer.json`
-  - Declara PHPMailer.
+  - Declara PHPMailer, PHPUnit en `require-dev` y scripts de validacion.
   - Si se añade una dependencia PHP, se modifica aquí y luego se ejecuta Composer.
 
 - `composer.lock`
@@ -206,6 +228,7 @@ Documentación humana del proyecto.
 
 ```powershell
 composer validate --strict
+composer test
 Get-ChildItem -Recurse -Filter *.php | Where-Object { $_.FullName -notlike '*\vendor\*' } | ForEach-Object { php -l $_.FullName }
 node --check public\assets\app.js
 ```

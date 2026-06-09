@@ -34,6 +34,9 @@ Composer ya está configurado en `composer.json`. En local, `APP_ENV=local` hace
   - `Config.php`: lee `.env` y variables de entorno.
   - `Database.php`: crea conexión PDO MySQL.
   - `Auth.php`: sesiones, usuario actual, login/logout y protección de endpoints.
+  - `Security.php`: token CSRF y cabeceras de seguridad.
+  - `RateLimiter.php`: limitador de intentos por accion e identificador.
+  - `ImportService.php`: normalizacion y previsualizacion testeable de importaciones.
   - `Request.php`: parseo de JSON o `POST`.
   - `Response.php`: respuestas JSON y errores.
   - `Mailer.php`: PHPMailer en producción; log local si `APP_ENV=local`.
@@ -64,6 +67,7 @@ Tablas principales:
 - `workout_muscle_groups`: relación N:M entre entrenamientos y grupos musculares.
 - `exercises`: ejercicios del usuario con grupo, tipo de marca y notas permanentes.
 - `records`: marcas guardadas con usuario, ejercicio, entrenamiento usado, valor, tipo, fecha/hora y nota puntual.
+- `rate_limits`: ventanas de intentos para login, registro, reset, verificacion e importaciones.
 
 Tipos de marca válidos:
 
@@ -110,7 +114,7 @@ Datos:
 - `POST api.php?action=import-confirm`
 - `POST api.php?action=import-cancel`
 
-Los endpoints protegidos usan `Auth::requireUser()` y validan ownership antes de leer/modificar workouts, exercises y records.
+Los endpoints protegidos usan `Auth::requireUser()` y validan ownership antes de leer/modificar workouts, exercises y records. Todas las mutaciones `POST`/`DELETE` requieren header `X-CSRF-Token`, que el frontend obtiene desde `GET me`.
 
 Detalles relevantes:
 
@@ -126,6 +130,7 @@ Detalles relevantes:
 - `POST import-preview` valida un JSON de backup o un CSV de ejercicios y guarda el plan normalizado en sesion con `import_token`.
 - `POST import-confirm` aplica el plan validado en transaccion; `POST import-cancel` descarta la previsualizacion.
 - La importacion fusiona sin duplicar: entrenamientos por nombre, ejercicios por grupo+nombre y registros por ejercicio+entrenamiento+fecha+valor+nota.
+- Login, registro, forgot/reset password, verificacion e import preview tienen rate limiting y devuelven `429` si se supera el limite.
 
 ## Flujo UX
 
@@ -198,6 +203,7 @@ composer validate --strict
 Get-ChildItem -Recurse -Filter *.php | Where-Object { $_.FullName -notlike '*\vendor\*' } | ForEach-Object { php -l $_.FullName }
 node --check public\assets\app.js
 node .superpowers\implementation-tests\management-plan.test.cjs
+composer test
 ```
 
 También se comprobó que el servidor PHP responde con HTTP 200 para:
@@ -209,12 +215,11 @@ También se comprobó que el servidor PHP responde con HTTP 200 para:
 ## Puntos importantes / deuda conocida
 
 - La app es una primera V1 funcional, pero todavía puede pulirse visualmente.
-- No hay una suite formal de tests automatizados versionada. Existe una prueba local ignorada en `.superpowers/implementation-tests/management-plan.test.cjs` usada durante los últimos cambios.
-- No hay migraciones incrementales; solo `database/schema.sql`.
+- Hay suite PHPUnit para helpers de seguridad e importacion, mas una prueba local ignorada en `.superpowers/implementation-tests/management-plan.test.cjs`.
+- No hay migraciones incrementales; solo `database/schema.sql`. En bases existentes hay que crear manualmente la tabla `rate_limits` antes de activar el rate limiting.
 - Chart.js se carga desde CDN, por lo que requiere conexión a internet para ver gráficos.
 - El `.htaccess` raíz ayuda en hosting compartido, pero el despliegue ideal es apuntar document root a `public/`.
-- La protección CSRF no está implementada. Las sesiones son HTTP-only/SameSite=Lax, pero para producción sería recomendable añadir tokens CSRF en mutaciones.
-- La verificación y reset usan tokens hasheados y caducidad, pero no hay rate limiting.
+- Para produccion: `APP_ENV=production`, HTTPS real, `APP_URL` HTTPS, SMTP configurado, `composer install --no-dev`, document root a `public/` y permisos de escritura solo en `storage/`.
 
 ## Nota sobre Browser de Codex
 

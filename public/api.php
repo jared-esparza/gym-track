@@ -8,6 +8,9 @@ use GymTracker\Database;
 use GymTracker\Mailer;
 use GymTracker\Request;
 use GymTracker\Response;
+use GymTracker\ImportService;
+use GymTracker\RateLimiter;
+use GymTracker\Security;
 
 require dirname(__DIR__) . '/app/bootstrap.php';
 
@@ -16,6 +19,10 @@ $action = $_GET['action'] ?? '';
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 try {
+    if (Security::isMutatingMethod($method) && !Security::validCsrfToken($_SESSION, Security::csrfHeader())) {
+        Response::error('Token CSRF invÃ¡lido', 403);
+    }
+
     match ($action) {
         'me' => me(),
         'register' => postOnly($method) && register(),
@@ -50,6 +57,19 @@ function postOnly(string $method): bool
     }
 
     return true;
+}
+
+function throttle(string $action, ?string $identifier = null, int $maxAttempts = 10, int $windowSeconds = 900): void
+{
+    $identity = $identifier ?: clientIp();
+    if (!RateLimiter::attempt(Database::pdo(), $action, $identity, $maxAttempts, $windowSeconds)) {
+        Response::error('Demasiados intentos. Espera unos minutos antes de volver a probar.', 429);
+    }
+}
+
+function clientIp(): string
+{
+    return substr((string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown'), 0, 80);
 }
 
 function intParam(array $data, string $key): int
@@ -110,10 +130,10 @@ function me(): never
 {
     $user = Auth::user();
     if (!$user) {
-        Response::json(['ok' => true, 'user' => null]);
+        Response::json(['ok' => true, 'user' => null, 'csrf_token' => Security::csrfToken($_SESSION)]);
     }
 
-    Response::json(['ok' => true, 'user' => $user]);
+    Response::json(['ok' => true, 'user' => $user, 'csrf_token' => Security::csrfToken($_SESSION)]);
 }
 
 function register(): never
@@ -121,6 +141,7 @@ function register(): never
     $data = Request::input();
     $email = filter_var(trim((string) ($data['email'] ?? '')), FILTER_VALIDATE_EMAIL);
     $password = (string) ($data['password'] ?? '');
+    throttle('register', clientIp(), 5, 3600);
     if (!$email || strlen($password) < 8) {
         Response::error('Email válido y contraseña de 8 caracteres mínimo requeridos');
     }
@@ -139,6 +160,7 @@ function login(): never
     $data = Request::input();
     $email = filter_var(trim((string) ($data['email'] ?? '')), FILTER_VALIDATE_EMAIL);
     $password = (string) ($data['password'] ?? '');
+    throttle('login', clientIp() . '|' . (string) $email, 8, 900);
     $stmt = Database::pdo()->prepare('SELECT id, password_hash, email_verified_at FROM users WHERE email = ?');
     $stmt->execute([$email]);
     $user = $stmt->fetch();
@@ -162,6 +184,7 @@ function logout(): never
 function verifyEmail(): never
 {
     $token = (string) ($_GET['token'] ?? '');
+    throttle('verify-email', clientIp(), 20, 3600);
     if ($token === '') {
         Response::error('Token requerido');
     }
@@ -180,6 +203,7 @@ function forgotPassword(): never
 {
     $data = Request::input();
     $email = filter_var(trim((string) ($data['email'] ?? '')), FILTER_VALIDATE_EMAIL);
+    throttle('forgot-password', clientIp() . '|' . (string) $email, 5, 3600);
     if ($email) {
         $token = token();
         $stmt = Database::pdo()->prepare('UPDATE users SET reset_token_hash = ?, reset_expires_at = DATE_ADD(NOW(), INTERVAL 1 HOUR) WHERE email = ?');
@@ -198,6 +222,7 @@ function resetPassword(): never
     $data = Request::input();
     $token = (string) ($data['token'] ?? '');
     $password = (string) ($data['password'] ?? '');
+    throttle('reset-password', clientIp(), 10, 3600);
     if ($token === '' || strlen($password) < 8) {
         Response::error('Token y contraseña válida requeridos');
     }
@@ -592,6 +617,7 @@ function exportRecordCsvRows(int $userId): array
 
 function downloadJson(string $filename, array $payload): never
 {
+    Security::securityHeaders();
     header('Content-Type: application/json; charset=utf-8');
     header('Content-Disposition: attachment; filename="' . $filename . '"');
     echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
@@ -600,6 +626,7 @@ function downloadJson(string $filename, array $payload): never
 
 function downloadCsv(string $filename, array $headers, array $rows): never
 {
+    Security::securityHeaders();
     header('Content-Type: text/csv; charset=utf-8');
     header('Content-Disposition: attachment; filename="' . $filename . '"');
     $output = fopen('php://output', 'w');
@@ -614,6 +641,7 @@ function downloadCsv(string $filename, array $headers, array $rows): never
 function importPreview(): never
 {
     $user = Auth::requireUser();
+    throttle('import-preview', clientIp() . '|user:' . $user['id'], 20, 3600);
     $payload = uploadedImportPayload();
     $result = previewImportPayload((int) $user['id'], $payload['content'], $payload['filename']);
     $token = null;
@@ -664,11 +692,18 @@ function uploadedImportPayload(): array
 {
     $maxBytes = 2 * 1024 * 1024;
     if (isset($_FILES['file']) && is_uploaded_file($_FILES['file']['tmp_name'])) {
+        $filename = (string) $_FILES['file']['name'];
+        $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+        $mime = (string) ($_FILES['file']['type'] ?? '');
+        $allowedMimes = ['application/json', 'text/csv', 'text/plain', 'application/vnd.ms-excel', 'application/octet-stream'];
+        if (!in_array($extension, ['json', 'csv'], true) || ($mime !== '' && !in_array($mime, $allowedMimes, true))) {
+            Response::error('Tipo de archivo de importaciÃ³n no permitido');
+        }
         if ((int) $_FILES['file']['size'] > $maxBytes) {
             Response::error('El archivo supera el tamaÃ±o mÃ¡ximo de 2 MB');
         }
         return [
-            'filename' => (string) $_FILES['file']['name'],
+            'filename' => $filename,
             'content' => file_get_contents($_FILES['file']['tmp_name']) ?: '',
         ];
     }
@@ -679,7 +714,13 @@ function uploadedImportPayload(): array
         Response::error('Archivo de importaciÃ³n invÃ¡lido');
     }
 
-    return ['filename' => (string) ($data['filename'] ?? 'import.json'), 'content' => $content];
+    $filename = (string) ($data['filename'] ?? 'import.json');
+    $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+    if (!in_array($extension, ['json', 'csv'], true)) {
+        Response::error('Tipo de archivo de importaciÃ³n no permitido');
+    }
+
+    return ['filename' => $filename, 'content' => $content];
 }
 
 function previewImportPayload(int $userId, string $content, string $filename): array
@@ -689,11 +730,12 @@ function previewImportPayload(int $userId, string $content, string $filename): a
         return importResult([], ['El archivo estÃ¡ vacÃ­o'], []);
     }
 
+    $context = importContext($userId);
     if (str_ends_with(strtolower($filename), '.json') || str_starts_with($trimmed, '{')) {
-        return previewJsonImport($userId, $trimmed);
+        return ImportService::previewJson($trimmed, $context);
     }
 
-    return previewExerciseCsvImport($userId, $content);
+    return ImportService::previewExerciseCsv($content, $context);
 }
 
 function previewJsonImport(int $userId, string $content): array

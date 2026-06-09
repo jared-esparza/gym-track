@@ -7,16 +7,25 @@ const state = {
   activeExercise: null,
   manageExercises: [],
   importPreviewToken: null,
+  csrfToken: '',
   chart: null,
 };
 
 const $ = (id) => document.getElementById(id);
 
 async function api(action, options = {}) {
+  const method = (options.method || 'GET').toUpperCase();
+  const headers = { ...(options.headers || {}) };
+  if (!(options.body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  }
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && state.csrfToken) {
+    headers['X-CSRF-Token'] = state.csrfToken;
+  }
   const response = await fetch(`api.php?action=${action}`, {
     credentials: 'same-origin',
-    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
     ...options,
+    headers,
   });
   const data = await response.json();
   if (!data.ok) throw new Error(data.error || 'Error inesperado');
@@ -83,6 +92,7 @@ async function init() {
   }
 
   const me = await api('me');
+  state.csrfToken = me.csrf_token || '';
   if (me.user) {
     state.user = me.user;
     await showApp();
@@ -111,6 +121,7 @@ function bindAuth() {
       clearMessage($('authMessage'));
       await send('login', formData(form));
       const me = await api('me');
+      state.csrfToken = me.csrf_token || state.csrfToken;
       state.user = me.user;
       await showApp();
     } catch (error) {
@@ -559,6 +570,7 @@ async function previewImport(event) {
     const response = await fetch('api.php?action=import-preview', {
       method: 'POST',
       credentials: 'same-origin',
+      headers: state.csrfToken ? { 'X-CSRF-Token': state.csrfToken } : {},
       body: payload,
     });
     const data = await response.json();

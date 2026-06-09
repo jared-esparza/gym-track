@@ -14,7 +14,10 @@ final class Auth
             return;
         }
 
-        $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+        ini_set('session.use_strict_mode', '1');
+        $secure = Config::get('SESSION_SECURE_COOKIE', '') === '1'
+            || Config::get('APP_ENV', 'production') === 'production'
+            || (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
         session_set_cookie_params([
             'lifetime' => 0,
             'path' => '/',

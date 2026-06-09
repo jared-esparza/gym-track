@@ -8,6 +8,8 @@ The project focuses on a practical workout flow: choose a routine, pick a muscle
 
 - Email registration, account verification and password reset.
 - PHP session-based authentication.
+- CSRF protection for mutating requests.
+- Basic rate limiting for auth and import flows.
 - User-owned workouts/routines linked to fixed muscle groups.
 - User-created exercises with metric types: `kg`, `reps`, `min` and `km`.
 - Training flow for saving marks by active workout and exercise.
@@ -131,6 +133,7 @@ Useful checks after changing the project:
 
 ```powershell
 composer validate --strict
+composer test
 Get-ChildItem -Recurse -Filter *.php | Where-Object { $_.FullName -notlike '*\vendor\*' } | ForEach-Object { php -l $_.FullName }
 node --check public\assets\app.js
 ```
@@ -141,17 +144,17 @@ During recent development, an additional local test file was used under `.superp
 
 - The recommended document root is `public/`.
 - If shared hosting cannot point directly to `public/`, the root `.htaccess` provides a basic fallback.
+- Run `composer install --no-dev` for production deployments.
 - If Composer cannot run on the server, install dependencies locally and upload `vendor/` together with the app.
+- Existing databases must add the `rate_limits` table from `database/schema.sql`.
 - Chart.js is loaded from a CDN, so the graph view requires internet access.
 
 ## Current Status
 
-This is a functional V1. The main product flows are implemented, but there is still room for production hardening:
+This is a functional V1. The main product flows, basic production hardening and a PHPUnit unit test suite are implemented, but there is still room for future hardening:
 
-- Add CSRF protection for mutating requests.
-- Add rate limiting for auth, verification and reset endpoints.
-- Add a formal automated test suite.
 - Add incremental migrations for future schema changes.
+- Add broader end-to-end tests around authenticated browser flows.
 - Continue polishing the mobile UI.
 
 ## Documentation

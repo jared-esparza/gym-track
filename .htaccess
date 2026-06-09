@@ -1,0 +1,5 @@
+Options -Indexes
+RewriteEngine On
+
+RewriteRule ^$ public/index.html [L]
+RewriteRule ^(api\.php|index\.html|assets/.*)$ public/$1 [L]

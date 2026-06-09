@@ -1,0 +1,15 @@
+{
+  "name": "gym-tracker/mobile-first",
+  "description": "Mobile-first PHP/MySQL gym progress tracker.",
+  "type": "project",
+  "license": "proprietary",
+  "require": {
+    "php": ">=8.0",
+    "phpmailer/phpmailer": "^6.9"
+  },
+  "autoload": {
+    "psr-4": {
+      "GymTracker\\": "app/"
+    }
+  }
+}

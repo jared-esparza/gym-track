@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Gym Tracker</title>
+    <link rel="stylesheet" href="assets/app.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" defer></script>
+    <script src="assets/app.js" defer></script>
+  </head>
+  <body>
+    <main id="authView" class="auth-shell hidden">
+      <section class="auth-panel">
+        <h1>Gym Tracker</h1>
+        <p class="muted">Registra marcas, revisa tu RM y mantén tus entrenamientos ordenados.</p>
+        <div id="authMessage" class="notice hidden"></div>
+
+        <form id="loginForm" class="stack">
+          <h2>Entrar</h2>
+          <label>Email<input name="email" type="email" autocomplete="email" required></label>
+          <label>Contraseña<input name="password" type="password" autocomplete="current-password" required></label>
+          <button type="submit">Iniciar sesión</button>
+        </form>
+
+        <details>
+          <summary>Crear cuenta</summary>
+          <form id="registerForm" class="stack">
+            <label>Email<input name="email" type="email" autocomplete="email" required></label>
+            <label>Contraseña<input name="password" type="password" autocomplete="new-password" minlength="8" required></label>
+            <button type="submit">Registrarme</button>
+          </form>
+        </details>
+
+        <details>
+          <summary>Recuperar contraseña</summary>
+          <form id="forgotForm" class="stack">
+            <label>Email<input name="email" type="email" required></label>
+            <button type="submit">Enviar enlace</button>
+          </form>
+        </details>
+
+        <form id="resetForm" class="stack hidden">
+          <h2>Nueva contraseña</h2>
+          <input name="token" type="hidden">
+          <label>Contraseña<input name="password" type="password" minlength="8" required></label>
+          <button type="submit">Cambiar contraseña</button>
+        </form>
+      </section>
+    </main>
+
+    <main id="appView" class="app-shell hidden">
+      <header class="topbar">
+        <div>
+          <strong>Gym Tracker</strong>
+          <span id="userEmail"></span>
+        </div>
+        <button id="logoutBtn" class="ghost">Salir</button>
+      </header>
+
+      <section id="globalMessage" class="notice hidden"></section>
+
+      <section id="trainTab" class="screen active">
+        <div id="onboarding" class="panel hidden">
+          <h2>Primer entrenamiento</h2>
+          <p class="muted">Crea un entrenamiento para empezar a registrar ejercicios.</p>
+          <button type="button" id="onboardingWorkoutBtn" class="secondary">Crear entrenamiento</button>
+        </div>
+
+        <form id="activeWorkoutForm" class="panel stack">
+          <h2>Entrenar</h2>
+          <label>Entrenamiento activo<select id="activeWorkoutSelect" required></select></label>
+          <label>Grupo muscular<select id="trainGroupSelect" required></select></label>
+          <label>Ejercicio<select id="trainExerciseSelect" required></select></label>
+          <button type="button" id="showCreateExerciseBtn" class="secondary">Crear ejercicio en este grupo</button>
+        </form>
+
+        <form id="quickExerciseForm" class="panel stack hidden">
+          <h3>Nuevo ejercicio</h3>
+          <label>Nombre<input name="name" required maxlength="140"></label>
+          <label>Tipo de marca
+            <select name="metric_type" required>
+              <option value="kg">kg</option>
+              <option value="reps">reps</option>
+              <option value="min">min</option>
+              <option value="km">km</option>
+            </select>
+          </label>
+          <div class="row">
+            <button type="submit">Crear</button>
+            <button type="button" id="cancelCreateExerciseBtn" class="ghost">Cancelar</button>
+          </div>
+        </form>
+
+        <section id="exercisePanel" class="panel hidden">
+          <div class="metric-grid">
+            <div><span class="label">RM</span><strong id="rmValue">-</strong></div>
+            <div><span class="label">Último</span><strong id="lastValue">-</strong></div>
+          </div>
+          <div class="notes-box">
+            <div class="row between">
+              <span class="label">Notas del ejercicio</span>
+              <button id="editNotesBtn" type="button" class="ghost">Editar</button>
+            </div>
+            <p id="exerciseNotes" class="muted">Sin notas.</p>
+            <form id="exerciseNotesForm" class="stack hidden">
+              <textarea name="notes" rows="4"></textarea>
+              <button type="submit">Guardar notas</button>
+            </form>
+          </div>
+          <form id="recordForm" class="stack">
+            <label>Marca de hoy <span id="recordUnit"></span><input name="value" inputmode="decimal" required></label>
+            <label>Nota de este registro<textarea name="note" rows="3"></textarea></label>
+            <button type="submit">Guardar registro</button>
+          </form>
+        </section>
+      </section>
+
+      <section id="historyTab" class="screen">
+        <form class="panel stack">
+          <h2>Histórico</h2>
+          <label>Grupo muscular<select id="historyGroupSelect"></select></label>
+          <label>Ejercicio<select id="historyExerciseSelect"></select></label>
+        </form>
+        <section id="historyPanel" class="panel hidden">
+          <canvas id="historyChart" height="180"></canvas>
+          <form id="recordEditForm" class="stack inline-form hidden">
+            <h3>Editar registro</h3>
+            <input name="id" type="hidden">
+            <label>Marca<input name="value" inputmode="decimal" required></label>
+            <label>Nota<textarea name="note" rows="3"></textarea></label>
+            <div class="row">
+              <button type="submit">Guardar cambios</button>
+              <button type="button" id="cancelRecordEditBtn" class="ghost">Cancelar</button>
+            </div>
+          </form>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Fecha</th><th>Entrenamiento</th><th>Marca</th><th>Nota</th><th></th></tr></thead>
+              <tbody id="historyRows"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section id="manageTab" class="screen">
+        <section class="panel">
+          <div class="row between section-heading">
+            <div>
+              <h2>Entrenamientos</h2>
+              <p class="muted">Rutinas y grupos musculares disponibles al entrenar.</p>
+            </div>
+            <button type="button" id="newWorkoutBtn" class="secondary compact">Nuevo</button>
+          </div>
+          <div id="workoutList" class="item-list"></div>
+          <form id="workoutForm" class="stack inline-form hidden">
+            <h3 id="workoutFormTitle">Nuevo entrenamiento</h3>
+            <input name="id" type="hidden">
+            <label>Nombre<input name="name" required maxlength="120" placeholder="Ej. Push, Pull, Pierna"></label>
+            <fieldset id="groupCheckboxes"></fieldset>
+            <div class="row">
+              <button type="submit">Guardar</button>
+              <button type="button" id="cancelWorkoutBtn" class="ghost">Cancelar</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="panel">
+          <div class="row between section-heading">
+            <div>
+              <h2>Ejercicios</h2>
+              <p class="muted">Listado por grupo muscular para crear o corregir ejercicios.</p>
+            </div>
+            <button type="button" id="newManageExerciseBtn" class="secondary compact">Nuevo</button>
+          </div>
+          <label>Grupo muscular<select id="manageExerciseGroupSelect"></select></label>
+          <div id="manageExerciseList" class="item-list separated"></div>
+          <form id="exerciseManagementForm" class="stack inline-form hidden">
+            <h3 id="exerciseManagementTitle">Nuevo ejercicio</h3>
+            <input name="id" type="hidden">
+            <input name="record_count" type="hidden" value="0">
+            <label>Nombre<input name="name" required maxlength="140"></label>
+            <label>Grupo muscular<select name="muscle_group_id" required></select></label>
+            <label>Tipo de marca
+              <select name="metric_type" required>
+                <option value="kg">kg</option>
+                <option value="reps">reps</option>
+                <option value="min">min</option>
+                <option value="km">km</option>
+              </select>
+            </label>
+            <label>Notas<textarea name="notes" rows="4"></textarea></label>
+            <p id="exerciseMetricLockHint" class="muted hidden">No puedes cambiar el tipo de marca porque este ejercicio ya tiene registros.</p>
+            <div class="row">
+              <button type="submit">Guardar</button>
+              <button type="button" id="cancelManageExerciseBtn" class="ghost">Cancelar</button>
+            </div>
+          </form>
+        </section>
+      </section>
+
+      <nav class="bottom-nav" aria-label="Navegación principal">
+        <button data-tab="trainTab" class="active">Entrenar</button>
+        <button data-tab="historyTab">Histórico</button>
+        <button data-tab="manageTab">Gestión</button>
+      </nav>
+    </main>
+  </body>
+</html>

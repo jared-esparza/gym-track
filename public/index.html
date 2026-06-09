@@ -11,8 +11,11 @@
   <body>
     <main id="authView" class="auth-shell hidden">
       <section class="auth-panel">
-        <h1>Gym Tracker</h1>
-        <p class="muted">Registra marcas, revisa tu RM y mantén tus entrenamientos ordenados.</p>
+        <div class="brand-block">
+          <p class="eyebrow">Diario de entrenamiento</p>
+          <h1>Gym Tracker</h1>
+          <p class="muted">Registra marcas, revisa tu RM y mantén tus entrenamientos ordenados.</p>
+        </div>
         <div id="authMessage" class="notice hidden"></div>
 
         <form id="loginForm" class="stack">
@@ -61,20 +64,30 @@
 
       <section id="trainTab" class="screen active">
         <div id="onboarding" class="panel hidden">
-          <h2>Primer entrenamiento</h2>
-          <p class="muted">Crea un entrenamiento para empezar a registrar ejercicios.</p>
+          <div class="screen-head compact-head">
+            <div>
+              <p class="eyebrow">Inicio</p>
+              <h2>Primer entrenamiento</h2>
+              <p class="muted">Crea un entrenamiento para empezar a registrar ejercicios.</p>
+            </div>
+          </div>
           <button type="button" id="onboardingWorkoutBtn" class="secondary">Crear entrenamiento</button>
         </div>
 
-        <form id="activeWorkoutForm" class="panel stack">
-          <h2>Entrenar</h2>
+        <form id="activeWorkoutForm" class="panel stack flow-panel">
+          <div class="screen-head">
+            <div>
+              <p class="eyebrow">Sesión actual</p>
+              <h2>Entrenar</h2>
+            </div>
+          </div>
           <label>Entrenamiento activo<select id="activeWorkoutSelect" required></select></label>
           <label>Grupo muscular<select id="trainGroupSelect" required></select></label>
           <label>Ejercicio<select id="trainExerciseSelect" required></select></label>
           <button type="button" id="showCreateExerciseBtn" class="secondary">Crear ejercicio en este grupo</button>
         </form>
 
-        <form id="quickExerciseForm" class="panel stack hidden">
+        <form id="quickExerciseForm" class="panel stack inline-editor hidden">
           <h3>Nuevo ejercicio</h3>
           <label>Nombre<input name="name" required maxlength="140"></label>
           <label>Tipo de marca
@@ -91,10 +104,10 @@
           </div>
         </form>
 
-        <section id="exercisePanel" class="panel hidden">
+        <section id="exercisePanel" class="panel session-panel hidden">
           <div class="metric-grid">
-            <div><span class="label">RM</span><strong id="rmValue">-</strong></div>
-            <div><span class="label">Último</span><strong id="lastValue">-</strong></div>
+            <div class="metric-card"><span class="label">RM</span><strong id="rmValue">-</strong></div>
+            <div class="metric-card"><span class="label">Último</span><strong id="lastValue">-</strong></div>
           </div>
           <div class="notes-box">
             <div class="row between">
@@ -107,7 +120,8 @@
               <button type="submit">Guardar notas</button>
             </form>
           </div>
-          <form id="recordForm" class="stack">
+          <form id="recordForm" class="stack record-entry">
+            <h3>Nuevo registro</h3>
             <label>Marca de hoy <span id="recordUnit"></span><input name="value" inputmode="decimal" required></label>
             <label>Nota de este registro<textarea name="note" rows="3"></textarea></label>
             <button type="submit">Guardar registro</button>
@@ -116,13 +130,21 @@
       </section>
 
       <section id="historyTab" class="screen">
-        <form class="panel stack">
-          <h2>Histórico</h2>
+        <form class="panel stack flow-panel">
+          <div class="screen-head">
+            <div>
+              <p class="eyebrow">Progreso</p>
+              <h2>Histórico</h2>
+            </div>
+          </div>
           <label>Grupo muscular<select id="historyGroupSelect"></select></label>
           <label>Ejercicio<select id="historyExerciseSelect"></select></label>
         </form>
         <section id="historyPanel" class="panel hidden">
-          <canvas id="historyChart" height="180"></canvas>
+          <div class="chart-frame">
+            <canvas id="historyChart" height="180"></canvas>
+            <p id="historyEmptyState" class="empty-state hidden">Selecciona un ejercicio con registros para ver su evolución.</p>
+          </div>
           <form id="recordEditForm" class="stack inline-form hidden">
             <h3>Editar registro</h3>
             <input name="id" type="hidden">
@@ -133,7 +155,8 @@
               <button type="button" id="cancelRecordEditBtn" class="ghost">Cancelar</button>
             </div>
           </form>
-          <div class="table-wrap">
+          <div id="historyCards" class="record-card-list"></div>
+          <div class="table-wrap desktop-history">
             <table>
               <thead><tr><th>Fecha</th><th>Entrenamiento</th><th>Marca</th><th>Nota</th><th></th></tr></thead>
               <tbody id="historyRows"></tbody>
@@ -144,15 +167,16 @@
 
       <section id="manageTab" class="screen">
         <section class="panel">
-          <div class="row between section-heading">
+          <div class="screen-head section-heading">
             <div>
+              <p class="eyebrow">Rutinas</p>
               <h2>Entrenamientos</h2>
               <p class="muted">Rutinas y grupos musculares disponibles al entrenar.</p>
             </div>
             <button type="button" id="newWorkoutBtn" class="secondary compact">Nuevo</button>
           </div>
           <div id="workoutList" class="item-list"></div>
-          <form id="workoutForm" class="stack inline-form hidden">
+          <form id="workoutForm" class="stack inline-form inline-editor hidden">
             <h3 id="workoutFormTitle">Nuevo entrenamiento</h3>
             <input name="id" type="hidden">
             <label>Nombre<input name="name" required maxlength="120" placeholder="Ej. Push, Pull, Pierna"></label>
@@ -165,8 +189,9 @@
         </section>
 
         <section class="panel">
-          <div class="row between section-heading">
+          <div class="screen-head section-heading">
             <div>
+              <p class="eyebrow">Catálogo</p>
               <h2>Ejercicios</h2>
               <p class="muted">Listado por grupo muscular para crear o corregir ejercicios.</p>
             </div>
@@ -174,7 +199,7 @@
           </div>
           <label>Grupo muscular<select id="manageExerciseGroupSelect"></select></label>
           <div id="manageExerciseList" class="item-list separated"></div>
-          <form id="exerciseManagementForm" class="stack inline-form hidden">
+          <form id="exerciseManagementForm" class="stack inline-form inline-editor hidden">
             <h3 id="exerciseManagementTitle">Nuevo ejercicio</h3>
             <input name="id" type="hidden">
             <input name="record_count" type="hidden" value="0">

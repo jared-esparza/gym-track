@@ -78,7 +78,7 @@ Es la raíz web. En hosting ideal, el document root debe apuntar a esta carpeta.
 
 - `assets/app.css`
   - Estilos mobile-first.
-  - Controla paneles, formularios, navegación inferior, tablas, avisos y botones.
+  - Controla paneles, formularios, navegación inferior, tarjetas móviles, tablas, avisos y botones.
   - Si un cambio es visual sin alterar datos, probablemente va aquí.
 
 - `.htaccess`
@@ -190,7 +190,7 @@ Documentación humana del proyecto.
 
 - Histórico:
   - HTML: `historyTab`.
-  - JS: `loadHistory()`, `renderHistory()`, `saveRecordEdit()`, `deleteRecord()`.
+  - JS: `loadHistory()`, `renderHistory()`, `renderHistoryCards()`, `saveRecordEdit()`, `deleteRecord()`.
   - API: `history`, `records`.
 
 - Gestión:

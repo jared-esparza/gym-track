@@ -14,7 +14,7 @@ Funcionalidad principal:
 - Ejercicios creados por usuario, asociados a un grupo muscular.
 - Gestión de ejercicios desde la pestaña Gestión: crear, editar y eliminar.
 - Registro de marcas por ejercicio y entrenamiento activo.
-- Histórico en tabla y gráfico de mejor marca diaria.
+- Histórico en tarjetas móviles, tabla desktop y gráfico de mejor marca diaria.
 - Corrección y eliminación de registros.
 
 ## Stack
@@ -131,7 +131,7 @@ Pantallas principales:
 - Histórico:
   - Elegir grupo y ejercicio.
   - Ver gráfico de mejor marca diaria.
-  - Ver tabla completa de registros.
+  - Ver registros como tarjetas en móvil y tabla en pantallas amplias.
   - Editar registros con formulario embebido.
   - Eliminar registros con confirmación.
 - Gestión:

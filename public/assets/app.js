@@ -215,11 +215,20 @@ function renderGroups() {
 }
 
 function renderWorkouts() {
-  $('workoutList').innerHTML = state.workouts.length ? '' : '<p class="muted">Aún no tienes entrenamientos.</p>';
+  $('workoutList').innerHTML = state.workouts.length ? '' : '<p class="empty-state">Aún no tienes entrenamientos. Crea uno para empezar a registrar marcas.</p>';
   state.workouts.forEach((workout) => {
     const node = document.createElement('article');
     node.className = 'item';
-    node.innerHTML = `<strong>${escapeHtml(workout.name)}</strong><div class="item-actions"><button class="secondary" type="button">Editar</button><button class="ghost danger" type="button">Eliminar</button></div>`;
+    node.innerHTML = `
+      <div class="item-main">
+        <strong>${escapeHtml(workout.name)}</strong>
+        <p class="muted">Entrenamiento</p>
+      </div>
+      <div class="action-row compact-actions">
+        <button class="secondary" type="button">Editar</button>
+        <button class="ghost danger" type="button">Eliminar</button>
+      </div>
+    `;
     node.querySelector('.secondary').addEventListener('click', () => editWorkout(workout.id));
     node.querySelector('.danger').addEventListener('click', () => deleteWorkout(workout.id));
     $('workoutList').appendChild(node);
@@ -390,17 +399,17 @@ async function loadManageExercises() {
 }
 
 function renderManageExercises() {
-  $('manageExerciseList').innerHTML = state.manageExercises.length ? '' : '<p class="muted">No hay ejercicios en este grupo.</p>';
+  $('manageExerciseList').innerHTML = state.manageExercises.length ? '' : '<p class="empty-state">No hay ejercicios en este grupo. Crea el primero desde el botón Nuevo.</p>';
   state.manageExercises.forEach((exercise) => {
     const node = document.createElement('article');
     node.className = 'item';
     const count = Number(exercise.record_count || 0);
     node.innerHTML = `
-      <div>
+      <div class="item-main">
         <strong>${escapeHtml(exercise.name)}</strong>
         <p class="muted">${escapeHtml(groupName(exercise.muscle_group_id))} · ${exercise.metric_type} · ${count} registros</p>
       </div>
-      <div class="item-actions">
+      <div class="action-row compact-actions">
         <button class="secondary" type="button">Editar</button>
         <button class="ghost danger" type="button">Eliminar</button>
       </div>
@@ -509,6 +518,10 @@ async function loadHistory() {
 
 function renderHistory(data) {
   $('historyPanel').classList.remove('hidden');
+  const hasRecords = data.records.length > 0;
+  $('historyEmptyState').classList.toggle('hidden', hasRecords);
+  $('historyChart').classList.toggle('hidden', !hasRecords);
+  renderHistoryCards(data.records);
   const rows = data.records.map((record) => `
     <tr>
       <td>${formatDate(record.recorded_at)}</td>
@@ -522,13 +535,38 @@ function renderHistory(data) {
     </tr>
   `).join('');
   $('historyRows').innerHTML = rows || '<tr><td colspan="5">Sin registros.</td></tr>';
-  $('historyRows').querySelectorAll('[data-edit]').forEach((button) => button.addEventListener('click', () => editRecord(button)));
-  $('historyRows').querySelectorAll('[data-delete]').forEach((button) => button.addEventListener('click', () => deleteRecord(button.dataset.delete)));
+  bindHistoryActions($('historyRows'));
   renderChart(data.chart);
 }
 
+function renderHistoryCards(records) {
+  $('historyCards').innerHTML = records.map((record) => `
+    <article class="record-card">
+      <div>
+        <span class="label">${formatDate(record.recorded_at)}</span>
+        <strong>${formatValue(record.value, record.metric_type)}</strong>
+      </div>
+      <p class="muted">${escapeHtml(record.workout_name)}${record.note ? ` · ${escapeHtml(record.note)}` : ''}</p>
+      <div class="action-row compact-actions">
+        <button class="ghost" type="button" data-edit="${record.id}" data-value="${record.value}" data-note="${escapeHtml(record.note || '')}">Editar</button>
+        <button class="ghost danger" type="button" data-delete="${record.id}">Eliminar</button>
+      </div>
+    </article>
+  `).join('');
+  bindHistoryActions($('historyCards'));
+}
+
+function bindHistoryActions(container) {
+  container.querySelectorAll('[data-edit]').forEach((button) => button.addEventListener('click', () => editRecord(button)));
+  container.querySelectorAll('[data-delete]').forEach((button) => button.addEventListener('click', () => deleteRecord(button.dataset.delete)));
+}
+
 function renderChart(points) {
-  if (!window.Chart) return;
+  if (!window.Chart) {
+    $('historyEmptyState').classList.remove('hidden');
+    $('historyEmptyState').textContent = 'El gráfico no está disponible sin conexión a Chart.js.';
+    return;
+  }
   const ctx = $('historyChart');
   if (state.chart) state.chart.destroy();
   state.chart = new Chart(ctx, {

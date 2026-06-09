@@ -1,56 +1,134 @@
 # Gym Tracker
 
-Aplicación web mobile-first para registrar marcas de gimnasio con PHP, MySQL/MariaDB y JavaScript.
+Gym Tracker is a mobile-first web app for recording gym performance during training sessions. It is built as a lightweight PHP/MySQL application with plain HTML, CSS and JavaScript, designed to run on classic shared hosting without a frontend build process.
 
-## Requisitos
+The project focuses on a practical workout flow: choose a routine, pick a muscle group and exercise, save a mark, and review progress through history tables and daily-best charts.
 
-- PHP 8.0 o superior con PDO MySQL.
-- MySQL/MariaDB.
-- Composer para instalar PHPMailer.
-- Hosting apuntando a la carpeta `public/`.
+## Highlights
 
-## Instalación local o IONOS
+- Email registration, account verification and password reset.
+- PHP session-based authentication.
+- User-owned workouts/routines linked to fixed muscle groups.
+- User-created exercises with metric types: `kg`, `reps`, `min` and `km`.
+- Training flow for saving marks by active workout and exercise.
+- Personal records summary with best historical mark and latest entry.
+- History view with Chart.js daily-best graph and editable records.
+- Management view for workouts and exercises.
+- Local email logging for development with `APP_ENV=local`.
 
-1. Copia `.env.example` a `.env` y ajusta `APP_URL`, credenciales de base de datos y SMTP.
-2. Ejecuta `composer install --no-dev`.
-3. Crea la base de datos y ejecuta `database/schema.sql`.
-4. Configura el document root del hosting en `public/`.
-5. Abre `public/index.html` desde el dominio configurado.
+## Screens and Workflow
 
-Si Composer no está disponible en el hosting, ejecuta `composer install --no-dev` en local y sube también la carpeta `vendor/`.
+- **Auth**: login, registration, email verification, forgotten password and reset password.
+- **Train**: select active workout, muscle group and exercise, then save a new mark.
+- **History**: filter by group/exercise, inspect the graph, edit or delete records.
+- **Management**: create, edit and delete workouts and exercises.
 
-## SMTP
+After saving a mark, the selected workout remains active and the app clears the group/exercise selection so the next record can be entered for a different exercise.
 
-La app usa PHPMailer si `vendor/autoload.php` existe. En desarrollo, con `APP_ENV=local`, los correos se escriben en `storage/logs/mail.log` para poder probar registro, verificación y reset sin servidor SMTP.
+## Tech Stack
 
-## Uso
+- PHP 8+
+- MySQL/MariaDB
+- Plain HTML, CSS and JavaScript
+- Chart.js via CDN
+- Composer
+- PHPMailer for SMTP
 
-- Un usuario se registra con email y contraseña.
-- Debe verificar su email antes de iniciar sesión.
-- En el primer acceso, crea un entrenamiento seleccionando grupos musculares.
-- En `Entrenar`, elige un entrenamiento activo y registra marcas por grupo y ejercicio.
-- Después de guardar una marca, se mantiene el entrenamiento activo y se vuelve a elegir grupo/ejercicio para el siguiente registro.
-- En `Histórico`, consulta tabla completa, gráfico de mejor marca diaria, edita registros y elimina marcas.
-- En `Gestión`, crea/edita/elimina entrenamientos y crea/edita/elimina ejercicios.
+There is no bundler, framework or compile step. The deployable web root is `public/`.
 
-## Estructura
+## Project Structure
 
-- `public/`: raíz web con frontend y API.
-- `app/`: configuración, conexión DB, sesión, request/response y mailer.
-- `database/schema.sql`: tablas y grupos musculares iniciales.
-- `docs/PROJECT_STRUCTURE.md`: guía humana de carpetas, archivos y dónde tocar para cambios manuales.
-- `PROJECT_CONTEXT.md`: contexto funcional/técnico actualizado para futuras sesiones de desarrollo.
-- `.env.example`: plantilla de configuración.
+```text
+app/                  Shared PHP classes: config, database, auth, request/response, mail
+database/schema.sql   Initial database schema and fixed muscle groups
+docs/                 Human-oriented project documentation
+public/               Web root: SPA, JSON API, CSS and JavaScript
+storage/              Generated local files, such as email logs
+vendor/               Composer dependencies
+PROJECT_CONTEXT.md    Technical and product context for future development
+README.md             Public repository overview
+```
 
-## Documentación
+For a more detailed file-by-file guide, see [docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md).
 
-- [Guía de estructura del proyecto](docs/PROJECT_STRUCTURE.md)
-- [Contexto técnico del proyecto](PROJECT_CONTEXT.md)
+## Local Setup
 
-## Validaciones útiles
+1. Install PHP 8+, MySQL/MariaDB and Composer.
+2. Copy `.env.example` to `.env`.
+3. Configure `APP_URL`, database credentials and SMTP values.
+4. Install dependencies:
+
+```powershell
+composer install
+```
+
+5. Create the database and run:
+
+```sql
+database/schema.sql
+```
+
+6. Start a local PHP server:
+
+```powershell
+php -S 127.0.0.1:4177 -t public
+```
+
+7. Open:
+
+```text
+http://127.0.0.1:4177/
+```
+
+With `APP_ENV=local`, verification and reset emails are written to:
+
+```text
+storage/logs/mail.log
+```
+
+## Example `.env`
+
+```env
+APP_ENV=local
+APP_URL=http://127.0.0.1:4177
+
+DB_HOST=localhost
+DB_NAME=gym_tracker
+DB_USER=root
+DB_PASS=
+DB_CHARSET=utf8mb4
+```
+
+## Validation
+
+Useful checks after changing the project:
 
 ```powershell
 composer validate --strict
 Get-ChildItem -Recurse -Filter *.php | Where-Object { $_.FullName -notlike '*\vendor\*' } | ForEach-Object { php -l $_.FullName }
 node --check public\assets\app.js
 ```
+
+During recent development, an additional local test file was used under `.superpowers/implementation-tests/`. That folder is intentionally ignored and is not required for deployment.
+
+## Deployment Notes
+
+- The recommended document root is `public/`.
+- If shared hosting cannot point directly to `public/`, the root `.htaccess` provides a basic fallback.
+- If Composer cannot run on the server, install dependencies locally and upload `vendor/` together with the app.
+- Chart.js is loaded from a CDN, so the graph view requires internet access.
+
+## Current Status
+
+This is a functional V1. The main product flows are implemented, but there is still room for production hardening:
+
+- Add CSRF protection for mutating requests.
+- Add rate limiting for auth, verification and reset endpoints.
+- Add a formal automated test suite.
+- Add incremental migrations for future schema changes.
+- Continue polishing the mobile UI.
+
+## Documentation
+
+- [Project structure guide](docs/PROJECT_STRUCTURE.md)
+- [Technical/project context](PROJECT_CONTEXT.md)

@@ -13,7 +13,8 @@ Funcionalidad principal:
 - Grupos musculares fijos precargados.
 - Ejercicios creados por usuario, asociados a un grupo muscular.
 - Gestión de ejercicios desde la pestaña Gestión: crear, editar y eliminar.
-- Registro de marcas por ejercicio y entrenamiento activo.
+- Gimnasios opcionales para separar marcas cuando cambia el material disponible.
+- Registro de marcas por ejercicio, entrenamiento activo y, si la preferencia está activada, gimnasio.
 - Histórico en tarjetas móviles, tabla desktop y gráfico de mejor marca diaria.
 - Corrección y eliminación de registros.
 
@@ -69,12 +70,14 @@ Composer ya está configurado en `composer.json`. En local, `APP_ENV=local` hace
 
 Tablas principales:
 
-- `users`: email, hash de password, verificación de email, tokens de reset.
+- `users`: email, hash de password, verificación de email, preferencia `gyms_enabled`, tokens de reset.
 - `muscle_groups`: catálogo fijo del sistema.
 - `workouts`: entrenamientos/rutinas del usuario.
 - `workout_muscle_groups`: relación N:M entre entrenamientos y grupos musculares.
+- `gyms`: gimnasios del usuario, usados solo si `users.gyms_enabled` está activo.
 - `exercises`: ejercicios del usuario con grupo, tipo de marca y notas permanentes.
-- `records`: marcas guardadas con usuario, ejercicio, entrenamiento usado, valor, tipo, fecha/hora y nota puntual.
+- `exercise_gyms`: allow-list opcional N:M entre ejercicios y gimnasios; si un ejercicio no tiene filas aquí, se considera disponible en todos los gimnasios del usuario.
+- `records`: marcas guardadas con usuario, ejercicio, entrenamiento usado, gimnasio opcional, valor, tipo, fecha/hora y nota puntual.
 - `rate_limits`: ventanas de intentos para login, registro, reset, verificacion e importaciones.
 
 Tipos de marca válidos:
@@ -84,13 +87,15 @@ Tipos de marca válidos:
 - `min`
 - `km`
 
-La RM en V1 es simplemente la mejor marca histórica numérica de un ejercicio (`MAX(value)`), no una 1RM estimada.
+La RM en V1 es simplemente la mejor marca histórica numérica de un ejercicio (`MAX(value)`), no una 1RM estimada. Si los gimnasios están activados, la RM y el último registro se calculan dentro del gimnasio seleccionado; si están desactivados, se mezclan todos los registros como antes.
 
 Notas de integridad:
 
 - Si se elimina un ejercicio, MySQL elimina también sus registros por `records.exercise_id ON DELETE CASCADE`.
 - Si se elimina un usuario, se eliminan sus entrenamientos, ejercicios y registros.
 - Si se intenta eliminar un entrenamiento con registros asociados, la API lo bloquea para no dejar histórico sin rutina.
+- Si se intenta eliminar un gimnasio con registros asociados, la API lo bloquea; si solo aparece en `exercise_gyms`, se puede eliminar y se limpian esas relaciones por cascada.
+- Los registros anteriores a la feature de gimnasios quedan con `records.gym_id = NULL`, que la UI muestra como "Sin gimnasio".
 
 ## Endpoints API
 
@@ -109,35 +114,44 @@ Auth:
 Datos:
 
 - `GET api.php?action=bootstrap`
+- `POST api.php?action=preferences`
+- `GET/POST api.php?action=gyms`
+- `POST/DELETE api.php?action=gym&id=...`
 - `GET/POST api.php?action=workouts`
 - `GET/POST/DELETE api.php?action=workout&id=...`
-- `GET api.php?action=exercises[&muscle_group_id=...][&workout_id=...]`
+- `GET api.php?action=exercises[&muscle_group_id=...][&workout_id=...][&gym_id=...]`
 - `POST/DELETE api.php?action=exercise&id=...`
-- `GET api.php?action=exercise-summary&exercise_id=...`
+- `GET api.php?action=exercise-summary&exercise_id=...[&gym_id=...]`
 - `POST/DELETE api.php?action=records`
-- `GET api.php?action=history&exercise_id=...`
+- `GET api.php?action=history&exercise_id=...[&gym_id=ID|none]`
 - `GET api.php?action=export&format=json`
 - `GET api.php?action=export&format=csv&type=exercises|workouts|records`
 - `POST api.php?action=import-preview`
 - `POST api.php?action=import-confirm`
 - `POST api.php?action=import-cancel`
 
-Los endpoints protegidos usan `Auth::requireUser()` y validan ownership antes de leer/modificar workouts, exercises y records. Todas las mutaciones `POST`/`DELETE` requieren header `X-CSRF-Token`, que el frontend obtiene desde `GET me`.
+Los endpoints protegidos usan `Auth::requireUser()` y validan ownership antes de leer/modificar gyms, workouts, exercises y records. Todas las mutaciones `POST`/`DELETE` requieren header `X-CSRF-Token`, que el frontend obtiene desde `GET me`.
 
 Detalles relevantes:
 
-- `GET exercises` acepta filtros opcionales: por `muscle_group_id`, por `workout_id` si se quiere limitar a los grupos de un entrenamiento, o sin filtros para devolver todos los ejercicios del usuario.
-- `GET exercises` devuelve `record_count` para saber si el tipo de marca debe bloquearse en edición.
+- `POST preferences` actualiza preferencias de usuario como `gyms_enabled`.
+- `GET/POST gyms` lista o crea gimnasios; `POST/DELETE gym&id=...` edita o elimina un gimnasio del usuario.
+- `GET exercises` acepta filtros opcionales: por `muscle_group_id`, por `workout_id` si se quiere limitar a los grupos de un entrenamiento, y por `gym_id` si los gimnasios están activos.
+- `GET exercises` devuelve `record_count` y `gym_ids`; `record_count` sirve para bloquear el tipo de marca en edición y `gym_ids` representa la allow-list de gimnasios. Lista vacía significa "todos los gimnasios".
 - `POST exercise` crea ejercicios si no recibe `id`.
-- `POST exercise` edita nombre, grupo, tipo de marca y notas si recibe `id`.
+- `POST exercise` edita nombre, grupo, tipo de marca, notas y `gym_ids` si recibe `id`.
 - Si un ejercicio ya tiene registros, no se permite cambiar su `metric_type`.
 - `DELETE exercise` elimina el ejercicio y sus registros asociados por cascada.
-- `GET export&format=json` descarga un backup restaurable con `schema: "gym-tracker-export"`, version 1, entrenamientos, ejercicios y registros.
-- `GET export&format=csv&type=exercises` descarga un CSV importable con columnas `muscle_group,name,metric_type,notes`.
-- `GET export&format=csv&type=workouts|records` descarga CSVs de consulta para hojas de calculo.
+- `GET exercise-summary` acepta `gym_id` si los gimnasios están activos; filtra RM y último registro por ese gimnasio, o por `none` para registros sin gimnasio.
+- `POST records` exige `gym_id` solo si `gyms_enabled` está activo. La edición de registros puede corregir `gym_id` y acepta `none` para dejarlo sin gimnasio.
+- `GET history` acepta `gym_id` si los gimnasios están activos; no hay vista "todos los gimnasios" en ese modo.
+- `GET export&format=json` descarga un backup restaurable con `schema: "gym-tracker-export"`, version 2, gimnasios, entrenamientos, ejercicios y registros.
+- `GET export&format=csv&type=exercises` descarga un CSV importable con columnas `muscle_group,name,metric_type,notes,gyms`.
+- `GET export&format=csv&type=workouts|records` descarga CSVs de consulta; records incluye columna `gym`.
 - `POST import-preview` valida un JSON de backup o un CSV de ejercicios y guarda el plan normalizado en sesion con `import_token`.
 - `POST import-confirm` aplica el plan validado en transaccion; `POST import-cancel` descarta la previsualizacion.
-- La importacion fusiona sin duplicar: entrenamientos por nombre, ejercicios por grupo+nombre y registros por ejercicio+entrenamiento+fecha+valor+nota.
+- La importacion acepta backups v1 y v2. V1 entra sin gimnasios; V2 incluye `gyms`, `exercises[].gyms` y `records[].gym`.
+- La importacion fusiona sin duplicar: gimnasios por nombre, entrenamientos por nombre, ejercicios por grupo+nombre y registros por ejercicio+entrenamiento+gimnasio+fecha+valor+nota.
 - Login, registro, forgot/reset password, verificacion e import preview tienen rate limiting y devuelven `429` si se supera el limite.
 
 ## Flujo UX
@@ -146,26 +160,38 @@ Pantallas principales:
 
 - Auth:
   - Login, registro, forgot password y reset password.
+  - Los formularios son mutuamente excluyentes: al abrir registro, recuperacion o reset se oculta el login para evitar estados mezclados.
 - Entrenar:
   - Elegir entrenamiento activo.
+  - Si los gimnasios estan activos, elegir gimnasio antes de elegir ejercicio; sin gimnasio seleccionado se ocultan selector de ejercicio y formulario de marca.
   - Elegir grupo muscular permitido por ese entrenamiento, o dejarlo en "Todos los grupos del entrenamiento".
   - Si no hay grupo seleccionado, el selector de ejercicio muestra todos los ejercicios de los grupos incluidos en el entrenamiento activo.
+  - Con gimnasios activos, el selector de ejercicio se filtra ademas por la allow-list del gimnasio seleccionado.
   - Elegir o crear ejercicio.
+  - Si se crea un ejercicio rapido con gimnasios activos, queda limitado por defecto al gimnasio actual.
+  - Con gimnasios activos, RM y ultimo registro pertenecen al gimnasio seleccionado.
   - Ver RM, último registro y notas.
   - Guardar marca y nota puntual.
-  - Tras guardar una marca, se mantiene el entrenamiento activo pero se limpian grupo, ejercicio y panel para registrar otro ejercicio.
+  - Con gimnasios activos, la marca se guarda con `gym_id`.
+  - Tras guardar una marca, se mantiene el entrenamiento activo y el gimnasio, pero se limpian grupo, ejercicio y panel para registrar otro ejercicio.
 - Histórico:
   - Elegir grupo y ejercicio, o dejar el grupo en "Todos los grupos" para escoger cualquier ejercicio.
+  - Si los gimnasios estan activos, elegir gimnasio o "Sin gimnasio" antes de elegir ejercicio; no hay vista mezclada de todos los gimnasios en ese modo.
   - En la carga inicial, `loadBootstrap()` llama a `loadExercises('history')` para que el selector muestre todos los ejercicios sin esperar un cambio manual de grupo.
+  - Con gimnasios activos, grafico, tarjetas y tabla se filtran por el gimnasio seleccionado o por registros "Sin gimnasio".
   - Ver gráfico de mejor marca diaria.
   - Ver registros como tarjetas en móvil y tabla en pantallas amplias.
   - Editar registros con formulario embebido.
+  - La edicion permite corregir el gimnasio del registro, incluido dejarlo como "Sin gimnasio".
   - Eliminar registros con confirmación.
 - Gestión:
   - Apartado de entrenamientos: listar, crear, editar y eliminar.
+  - Apartado de gimnasios: activar/desactivar la feature, listar, crear, editar y eliminar gimnasios.
+  - No se puede eliminar un gimnasio con registros asociados; si solo aparece en allow-lists de ejercicios, se elimina y se limpian esas relaciones.
   - Apartado de ejercicios: listar todos por defecto, filtrar por grupo, crear, editar y eliminar.
+  - Con gimnasios activos, el formulario de ejercicio permite elegir gimnasios permitidos. Sin seleccion significa disponible en todos los gimnasios del usuario.
   - Al eliminar un ejercicio se avisa de que también se eliminarán todos sus registros de marcas asociados.
-  - Apartado de datos: exportar backup JSON, exportar CSVs e importar con previsualizacion y confirmacion.
+  - Apartado de datos: exportar backup JSON v2, exportar CSVs e importar con previsualizacion y confirmacion.
 
 Onboarding actual:
 
@@ -177,7 +203,7 @@ Con XAMPP:
 
 1. Arrancar MySQL desde `C:\xampp\xampp-control.exe`.
 2. Crear base `gym_tracker` en phpMyAdmin.
-3. Ejecutar `database/schema.sql`.
+3. Ejecutar `database/schema.sql`. En una base existente anterior a gimnasios opcionales, aplicar tambien `database/2026-06-10_optional_gyms_migration.sql`.
 4. Crear `.env` en la raíz:
 
 ```env
@@ -225,7 +251,9 @@ También se comprobó que el servidor PHP responde con HTTP 200 para:
 
 - La app es una primera V1 funcional, pero todavía puede pulirse visualmente.
 - Hay suite PHPUnit para helpers de seguridad e importacion, mas una prueba local ignorada en `.superpowers/implementation-tests/management-plan.test.cjs`.
-- No hay migraciones incrementales; solo `database/schema.sql`. En bases existentes hay que crear manualmente la tabla `rate_limits` antes de activar el rate limiting.
+- `database/schema.sql` es la fuente canonica para instalaciones nuevas.
+- En bases existentes hay que aplicar SQL incremental para cambios ya desplegados. Actualmente `database/2026-06-10_optional_gyms_migration.sql` anade gimnasios opcionales y se mantiene como archivo local no comprometido hasta decidir si entra al repositorio.
+- Si una base antigua no tiene `rate_limits`, crear esa tabla desde `database/schema.sql` antes de activar el rate limiting.
 - Chart.js se carga desde CDN, por lo que requiere conexión a internet para ver gráficos.
 - El `.htaccess` raíz ayuda en hosting compartido, pero el despliegue ideal es apuntar document root a `public/`.
 - Para produccion: `APP_ENV=production`, HTTPS real, `APP_URL` HTTPS, SMTP configurado, `composer install --no-dev`, document root a `public/` y permisos de escritura solo en `storage/`.

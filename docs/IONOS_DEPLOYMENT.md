@@ -148,7 +148,8 @@ jobs:
       - name: Prepare deploy package
         run: |
           mkdir deploy-build
-          cp -R app database public storage vendor .htaccess composer.json composer.lock deploy-build/
+          cp -R app database public vendor .htaccess composer.json composer.lock deploy-build/
+          mkdir -p deploy-build/storage/logs
 
       - name: Deploy over SFTP
         uses: wlixcc/SFTP-Deploy-Action@v1.2.6
@@ -166,6 +167,8 @@ jobs:
 ```
 
 Este workflow crea `deploy-build/` y sube solo los archivos necesarios para produccion. Asi se evita subir `.git/`, `.github/`, tests, caches y otros archivos del checkout. Tambien sube `vendor/` ya construido porque un hosting compartido puede no permitir ejecutar Composer en servidor.
+
+`storage/` se crea dentro de `deploy-build/` porque esta ignorado por Git y puede no existir en el checkout limpio de GitHub Actions.
 
 `delete_remote_files: false` evita borrar accidentalmente `.env`, `storage/` u otros archivos gestionados en hosting. Si algun dia se cambia a borrado remoto, hay que excluir explicitamente `.env` y `storage/`.
 

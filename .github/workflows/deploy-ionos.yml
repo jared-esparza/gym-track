@@ -46,7 +46,8 @@ jobs:
       - name: Prepare deploy package
         run: |
           mkdir deploy-build
-          cp -R app database public storage vendor .htaccess composer.json composer.lock deploy-build/
+          cp -R app database public vendor .htaccess composer.json composer.lock deploy-build/
+          mkdir -p deploy-build/storage/logs
 
       - name: Deploy over SFTP
         uses: wlixcc/SFTP-Deploy-Action@v1.2.6

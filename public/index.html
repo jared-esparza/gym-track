@@ -23,22 +23,28 @@
           <label>Email<input name="email" type="email" autocomplete="email" required></label>
           <label>Contraseña<input name="password" type="password" autocomplete="current-password" required></label>
           <button type="submit">Iniciar sesión</button>
+          <div class="auth-switch">
+            <button id="showRegisterBtn" class="ghost" type="button">Crear cuenta</button>
+            <button id="showForgotBtn" class="ghost" type="button">Recuperar contraseña</button>
+          </div>
         </form>
 
-        <details>
+        <details id="registerDetails">
           <summary>Crear cuenta</summary>
           <form id="registerForm" class="stack">
             <label>Email<input name="email" type="email" autocomplete="email" required></label>
             <label>Contraseña<input name="password" type="password" autocomplete="new-password" minlength="8" required></label>
             <button type="submit">Registrarme</button>
+            <button id="backToLoginFromRegisterBtn" class="ghost" type="button">Volver a entrar</button>
           </form>
         </details>
 
-        <details>
+        <details id="forgotDetails">
           <summary>Recuperar contraseña</summary>
           <form id="forgotForm" class="stack">
             <label>Email<input name="email" type="email" required></label>
             <button type="submit">Enviar enlace</button>
+            <button id="backToLoginFromForgotBtn" class="ghost" type="button">Volver a entrar</button>
           </form>
         </details>
 
@@ -47,6 +53,7 @@
           <input name="token" type="hidden">
           <label>Contraseña<input name="password" type="password" minlength="8" required></label>
           <button type="submit">Cambiar contraseña</button>
+          <button id="backToLoginFromResetBtn" class="ghost" type="button">Volver a entrar</button>
         </form>
       </section>
     </main>

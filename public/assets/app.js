@@ -9,6 +9,7 @@ const state = {
   importPreviewToken: null,
   csrfToken: '',
   chart: null,
+  authMode: 'login',
 };
 
 const $ = (id) => document.getElementById(id);
@@ -87,8 +88,10 @@ async function init() {
   const params = new URLSearchParams(location.search);
   if (params.get('verified')) showMessage('Email verificado. Ya puedes iniciar sesión.', 'ok', $('authMessage'));
   if (params.get('reset')) {
-    $('resetForm').classList.remove('hidden');
     $('resetForm').elements.token.value = params.get('reset');
+    showAuthMode('reset');
+  } else {
+    showAuthMode('login');
   }
 
   const me = await api('me');
@@ -114,6 +117,20 @@ async function showApp() {
 }
 
 function bindAuth() {
+  $('showRegisterBtn').addEventListener('click', () => showAuthMode('register'));
+  $('showForgotBtn').addEventListener('click', () => showAuthMode('forgot'));
+  $('backToLoginFromRegisterBtn').addEventListener('click', () => showAuthMode('login'));
+  $('backToLoginFromForgotBtn').addEventListener('click', () => showAuthMode('login'));
+  $('backToLoginFromResetBtn').addEventListener('click', () => showAuthMode('login'));
+  $('registerDetails').addEventListener('toggle', () => {
+    if ($('registerDetails').open) showAuthMode('register');
+    if (!$('registerDetails').open && !$('forgotDetails').open && state.authMode !== 'reset') showAuthMode('login');
+  });
+  $('forgotDetails').addEventListener('toggle', () => {
+    if ($('forgotDetails').open) showAuthMode('forgot');
+    if (!$('registerDetails').open && !$('forgotDetails').open && state.authMode !== 'reset') showAuthMode('login');
+  });
+
   $('loginForm').addEventListener('submit', async (event) => {
     event.preventDefault();
     const form = event.currentTarget;
@@ -159,11 +176,28 @@ function bindAuth() {
       await send('reset-password', formData(form));
       showMessage('Contraseña actualizada. Inicia sesión.', 'ok', $('authMessage'));
       history.replaceState(null, '', 'index.html');
-      form.classList.add('hidden');
+      form.reset();
+      showAuthMode('login');
     } catch (error) {
       showMessage(error.message, 'error', $('authMessage'));
     }
   });
+}
+
+function showAuthMode(mode) {
+  state.authMode = mode;
+  const isLogin = mode === 'login';
+  const isRegister = mode === 'register';
+  const isForgot = mode === 'forgot';
+  const isReset = mode === 'reset';
+
+  $('loginForm').classList.toggle('hidden', !isLogin);
+  $('registerDetails').classList.toggle('hidden', isReset || isForgot);
+  $('forgotDetails').classList.toggle('hidden', isReset || isRegister);
+  $('resetForm').classList.toggle('hidden', !isReset);
+
+  $('registerDetails').open = isRegister;
+  $('forgotDetails').open = isForgot;
 }
 
 function bindApp() {
@@ -328,7 +362,13 @@ async function createExercise(event) {
 
 async function loadExerciseSummary() {
   const exerciseId = $('trainExerciseSelect').value;
-  if (!exerciseId) return;
+  if (!exerciseId) {
+    state.activeExercise = null;
+    $('exercisePanel').classList.add('hidden');
+    $('recordForm').reset();
+    $('exerciseNotesForm').classList.add('hidden');
+    return;
+  }
   const data = await api(`exercise-summary&exercise_id=${encodeURIComponent(exerciseId)}`);
   state.activeExercise = data.exercise;
   $('rmValue').textContent = formatValue(data.rm, data.exercise.metric_type);
@@ -627,7 +667,14 @@ function importSummaryMessage(summary = {}) {
 async function loadHistory() {
   const exerciseId = $('historyExerciseSelect').value;
   hideRecordEditForm();
-  if (!exerciseId) return;
+  if (!exerciseId) {
+    $('historyPanel').classList.add('hidden');
+    if (state.chart) {
+      state.chart.destroy();
+      state.chart = null;
+    }
+    return;
+  }
   const data = await api(`history&exercise_id=${encodeURIComponent(exerciseId)}`);
   renderHistory(data);
 }

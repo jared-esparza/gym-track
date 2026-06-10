@@ -226,6 +226,7 @@ async function loadBootstrap() {
 
   if (selectedManageGroup) $('manageExerciseGroupSelect').value = selectedManageGroup;
   await loadManageExercises();
+  await loadExercises('history');
 
   if (state.workouts.length) {
     $('activeWorkoutSelect').value = state.workouts[0].id;
@@ -283,13 +284,12 @@ async function loadExercises(context) {
     hideRecordEditForm();
   }
   const url = exercisesUrl(context, groupSelect.value);
-  const placeholder = exercisePlaceholder(context, groupSelect.value);
   if (!url) {
-    fillExerciseSelect(exerciseSelect, [], placeholder);
+    fillExerciseSelect(exerciseSelect, [], 'Elige ejercicio');
     return;
   }
   const data = await api(url);
-  const emptyPlaceholder = data.exercises.length ? placeholder : emptyExercisePlaceholder(context, groupSelect.value);
+  const emptyPlaceholder = data.exercises.length ? 'Elige ejercicio' : emptyExercisePlaceholder(context, groupSelect.value);
   fillExerciseSelect(exerciseSelect, data.exercises, emptyPlaceholder, !groupSelect.value);
 }
 
@@ -300,11 +300,6 @@ function exercisesUrl(context, groupId = '') {
     return workoutId ? `exercises&workout_id=${encodeURIComponent(workoutId)}` : '';
   }
   return 'exercises';
-}
-
-function exercisePlaceholder(context, groupId = '') {
-  if (context === 'train') return groupId ? 'Elige ejercicio' : 'Todos los ejercicios del entrenamiento';
-  return groupId ? 'Elige ejercicio' : 'Todos los ejercicios';
 }
 
 function emptyExercisePlaceholder(context, groupId = '') {

@@ -3,6 +3,7 @@ CREATE TABLE users (
   email VARCHAR(190) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
   email_verified_at DATETIME NULL,
+  gyms_enabled TINYINT(1) NOT NULL DEFAULT 0,
   verification_token_hash CHAR(64) NULL,
   verification_expires_at DATETIME NULL,
   reset_token_hash CHAR(64) NULL,
@@ -50,6 +51,16 @@ CREATE TABLE workout_muscle_groups (
   CONSTRAINT fk_wmg_group FOREIGN KEY (muscle_group_id) REFERENCES muscle_groups(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE gyms (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id INT UNSIGNED NOT NULL,
+  name VARCHAR(120) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_gyms_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  UNIQUE KEY uq_gyms_user_name (user_id, name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE exercises (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   user_id INT UNSIGNED NOT NULL,
@@ -64,11 +75,20 @@ CREATE TABLE exercises (
   UNIQUE KEY uq_exercises_user_group_name (user_id, muscle_group_id, name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE exercise_gyms (
+  exercise_id INT UNSIGNED NOT NULL,
+  gym_id INT UNSIGNED NOT NULL,
+  PRIMARY KEY (exercise_id, gym_id),
+  CONSTRAINT fk_exercise_gyms_exercise FOREIGN KEY (exercise_id) REFERENCES exercises(id) ON DELETE CASCADE,
+  CONSTRAINT fk_exercise_gyms_gym FOREIGN KEY (gym_id) REFERENCES gyms(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE records (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   user_id INT UNSIGNED NOT NULL,
   exercise_id INT UNSIGNED NOT NULL,
   workout_id INT UNSIGNED NOT NULL,
+  gym_id INT UNSIGNED NULL,
   value DECIMAL(10,2) NOT NULL,
   metric_type ENUM('kg', 'reps', 'min', 'km') NOT NULL,
   note TEXT NULL,
@@ -78,7 +98,9 @@ CREATE TABLE records (
   CONSTRAINT fk_records_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   CONSTRAINT fk_records_exercise FOREIGN KEY (exercise_id) REFERENCES exercises(id) ON DELETE CASCADE,
   CONSTRAINT fk_records_workout FOREIGN KEY (workout_id) REFERENCES workouts(id),
+  CONSTRAINT fk_records_gym FOREIGN KEY (gym_id) REFERENCES gyms(id) ON DELETE SET NULL,
   INDEX idx_records_exercise_date (exercise_id, recorded_at),
+  INDEX idx_records_exercise_gym_date (exercise_id, gym_id, recorded_at),
   INDEX idx_records_user_date (user_id, recorded_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

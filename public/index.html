@@ -89,6 +89,7 @@
             </div>
           </div>
           <label>Entrenamiento activo<select id="activeWorkoutSelect" required></select></label>
+          <label id="trainGymField" class="hidden">Gimnasio<select id="trainGymSelect"></select></label>
           <label>Grupo muscular<select id="trainGroupSelect" required></select></label>
           <label>Ejercicio<select id="trainExerciseSelect" required></select></label>
           <button type="button" id="showCreateExerciseBtn" class="secondary">Crear ejercicio en este grupo</button>
@@ -145,6 +146,7 @@
               <h2>Histórico</h2>
             </div>
           </div>
+          <label id="historyGymField" class="hidden">Gimnasio<select id="historyGymSelect"></select></label>
           <label>Grupo muscular<select id="historyGroupSelect"></select></label>
           <label>Ejercicio<select id="historyExerciseSelect"></select></label>
         </form>
@@ -157,6 +159,7 @@
             <h3>Editar registro</h3>
             <input name="id" type="hidden">
             <label>Marca<input name="value" inputmode="decimal" required></label>
+            <label id="recordEditGymField" class="hidden">Gimnasio<select id="recordEditGymSelect"></select></label>
             <label>Nota<textarea name="note" rows="3"></textarea></label>
             <div class="row">
               <button type="submit">Guardar cambios</button>
@@ -174,6 +177,28 @@
       </section>
 
       <section id="manageTab" class="screen">
+        <section id="gymSection" class="panel">
+          <div class="screen-head section-heading">
+            <div>
+              <p class="eyebrow">Preferencias</p>
+              <h2>Gimnasios</h2>
+              <p class="muted">Separa marcas cuando el material cambia entre gimnasios.</p>
+            </div>
+            <button type="button" id="newGymBtn" class="secondary compact">Nuevo</button>
+          </div>
+          <label class="check"><input id="gymsEnabledToggle" type="checkbox"> Activar gimnasios</label>
+          <div id="gymList" class="item-list separated"></div>
+          <form id="gymForm" class="stack inline-form inline-editor hidden">
+            <h3 id="gymFormTitle">Nuevo gimnasio</h3>
+            <input name="id" type="hidden">
+            <label>Nombre<input name="name" required maxlength="120" placeholder="Ej. Centro, Norte"></label>
+            <div class="row">
+              <button type="submit">Guardar</button>
+              <button type="button" id="cancelGymBtn" class="ghost">Cancelar</button>
+            </div>
+          </form>
+        </section>
+
         <section class="panel">
           <div class="screen-head section-heading">
             <div>
@@ -222,6 +247,7 @@
               </select>
             </label>
             <label>Notas<textarea name="notes" rows="4"></textarea></label>
+            <fieldset id="exerciseGymCheckboxes" class="hidden"></fieldset>
             <p id="exerciseMetricLockHint" class="muted hidden">No puedes cambiar el tipo de marca porque este ejercicio ya tiene registros.</p>
             <div class="row">
               <button type="submit">Guardar</button>

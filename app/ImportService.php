@@ -11,12 +11,22 @@ final class ImportService
     public static function previewJson(string $content, array $context): array
     {
         $data = json_decode($content, true);
-        if (!is_array($data) || ($data['schema'] ?? '') !== 'gym-tracker-export' || (int) ($data['version'] ?? 0) !== 1) {
+        $version = (int) ($data['version'] ?? 0);
+        if (!is_array($data) || ($data['schema'] ?? '') !== 'gym-tracker-export' || !in_array($version, [1, 2], true)) {
             return self::result(['JSON de backup no reconocido']);
         }
 
         $plan = self::emptyPlan();
         $errors = [];
+        if ($version >= 2) {
+            foreach (array_slice($data['gyms'] ?? [], 0, self::MAX_ROWS) as $index => $row) {
+                $gym = self::normalizeGym($row, $context, $index + 1, $errors);
+                if ($gym) {
+                    $plan['gyms'][] = $gym;
+                    $context['gyms'][self::key($gym['name'])] = ['id' => $gym['id'], 'name' => $gym['name']];
+                }
+            }
+        }
         foreach (array_slice($data['workouts'] ?? [], 0, self::MAX_ROWS) as $index => $row) {
             $workout = self::normalizeWorkout($row, $context, $index + 1, $errors);
             if ($workout) {
@@ -55,10 +65,12 @@ final class ImportService
 
         $delimiter = substr_count($lines[0], ';') > substr_count($lines[0], ',') ? ';' : ',';
         $header = str_getcsv(array_shift($lines), $delimiter);
-        $expected = ['muscle_group', 'name', 'metric_type', 'notes'];
-        if ($header !== $expected) {
-            return self::result(['Cabecera CSV invalida. Usa: muscle_group,name,metric_type,notes']);
+        $baseHeader = ['muscle_group', 'name', 'metric_type', 'notes'];
+        $gymHeader = ['muscle_group', 'name', 'metric_type', 'notes', 'gyms'];
+        if ($header !== $baseHeader && $header !== $gymHeader) {
+            return self::result(['Cabecera CSV invalida. Usa: muscle_group,name,metric_type,notes o muscle_group,name,metric_type,notes,gyms']);
         }
+        $expected = $header;
 
         $plan = self::emptyPlan();
         $errors = [];
@@ -95,7 +107,27 @@ final class ImportService
             ],
             'workouts' => [],
             'exercises' => [],
+            'gyms' => [
+                'centro' => ['id' => 1, 'name' => 'Centro'],
+                'norte' => ['id' => 2, 'name' => 'Norte'],
+            ],
         ];
+    }
+
+    private static function normalizeGym(array $row, array $context, int $rowNumber, array &$errors): ?array
+    {
+        $name = trim((string) ($row['name'] ?? ''));
+        if ($name === '' || mb_strlen($name) > 120) {
+            $errors[] = "Fila {$rowNumber}: gimnasio sin nombre valido";
+            return null;
+        }
+
+        $existing = $context['gyms'][self::key($name)] ?? null;
+        if ($existing && !$existing['id']) {
+            return null;
+        }
+
+        return ['id' => $existing['id'] ?? null, 'name' => mb_substr($name, 0, 120)];
     }
 
     private static function normalizeWorkout(array $row, array $context, int $rowNumber, array &$errors): ?array
@@ -132,6 +164,10 @@ final class ImportService
         $name = trim((string) ($row['name'] ?? ''));
         $metric = trim((string) ($row['metric_type'] ?? ''));
         $group = $context['groups'][self::key($groupName)] ?? null;
+        $gyms = self::normalizeGymList($row['gyms'] ?? [], $context, $rowNumber, $errors);
+        if ($gyms === null) {
+            return null;
+        }
 
         if (!$group) {
             $errors[] = "Fila {$rowNumber}: grupo muscular desconocido";
@@ -163,6 +199,8 @@ final class ImportService
             'name' => mb_substr($name, 0, 140),
             'metric_type' => $metric,
             'notes' => mb_substr(trim((string) ($row['notes'] ?? '')), 0, 2000),
+            'gym_ids' => array_column($gyms, 'id'),
+            'gyms' => array_column($gyms, 'name'),
         ];
     }
 
@@ -176,6 +214,10 @@ final class ImportService
             return null;
         }
         $exercise = $context['exercises'][self::exerciseKey($group['id'], $exerciseName)] ?? null;
+        $gym = self::optionalGym($row['gym'] ?? null, $context, $rowNumber, $errors);
+        if ($gym === false) {
+            return null;
+        }
         $value = str_replace(',', '.', trim((string) ($row['value'] ?? '')));
         $recordedAt = trim((string) ($row['recorded_at'] ?? ''));
         if (!$exercise || !is_numeric($value) || (float) $value < 0 || ($row['metric_type'] ?? '') !== $exercise['metric_type'] || strtotime($recordedAt) === false) {
@@ -189,11 +231,52 @@ final class ImportService
             'muscle_group_id' => $group['id'],
             'workout_id' => $workout['id'],
             'workout_name' => $workout['name'],
+            'gym_id' => $gym['id'] ?? null,
+            'gym_name' => $gym['name'] ?? null,
             'value' => number_format((float) $value, 2, '.', ''),
             'metric_type' => $exercise['metric_type'],
             'note' => mb_substr(trim((string) ($row['note'] ?? '')), 0, 2000),
             'recorded_at' => date('Y-m-d H:i:s', strtotime($recordedAt)),
         ];
+    }
+
+    private static function normalizeGymList(mixed $value, array $context, int $rowNumber, array &$errors): ?array
+    {
+        if (!is_array($value)) {
+            $value = array_filter(array_map('trim', explode('|', (string) $value)));
+        }
+        $gyms = [];
+        foreach ($value as $gymName) {
+            $name = trim((string) $gymName);
+            if ($name === '') {
+                continue;
+            }
+            $gym = $context['gyms'][self::key($name)] ?? null;
+            if (!$gym) {
+                $errors[] = "Fila {$rowNumber}: gimnasio desconocido";
+                return null;
+            }
+            $key = $gym['id'] ? 'id:' . $gym['id'] : 'name:' . self::key($gym['name']);
+            $gyms[$key] = ['id' => $gym['id'] ? (int) $gym['id'] : null, 'name' => $gym['name']];
+        }
+
+        return array_values($gyms);
+    }
+
+    private static function optionalGym(mixed $value, array $context, int $rowNumber, array &$errors): array|false|null
+    {
+        $name = trim((string) ($value ?? ''));
+        if ($name === '') {
+            return null;
+        }
+
+        $gym = $context['gyms'][self::key($name)] ?? null;
+        if (!$gym) {
+            $errors[] = "Fila {$rowNumber}: gimnasio desconocido";
+            return false;
+        }
+
+        return ['id' => $gym['id'] ? (int) $gym['id'] : null, 'name' => $gym['name']];
     }
 
     private static function result(array $errors = [], array $warnings = [], ?array $plan = null): array
@@ -202,6 +285,7 @@ final class ImportService
         return [
             'plan' => $plan,
             'summary' => [
+                'gyms' => count($plan['gyms'] ?? []),
                 'workouts' => count($plan['workouts']),
                 'exercises' => count($plan['exercises']),
                 'records' => count($plan['records']),
@@ -215,7 +299,7 @@ final class ImportService
 
     private static function emptyPlan(): array
     {
-        return ['workouts' => [], 'exercises' => [], 'records' => []];
+        return ['gyms' => [], 'workouts' => [], 'exercises' => [], 'records' => []];
     }
 
     private static function key(string $value): string

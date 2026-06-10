@@ -34,6 +34,9 @@ try {
         'forgot-password' => postOnly($method) && forgotPassword(),
         'reset-password' => postOnly($method) && resetPassword(),
         'bootstrap' => bootstrapData(),
+        'preferences' => postOnly($method) && preferences(),
+        'gyms' => gyms($method),
+        'gym' => gym($method),
         'workouts' => workouts($method),
         'workout' => workout($method),
         'exercises' => exercises(),
@@ -105,6 +108,12 @@ function metricParam(array $data): string
     }
 
     return $metric;
+}
+
+function boolParam(array $data, string $key): bool
+{
+    $value = $data[$key] ?? false;
+    return $value === true || $value === 1 || $value === '1' || $value === 'true' || $value === 'on';
 }
 
 function token(): string
@@ -246,8 +255,79 @@ function bootstrapData(): never
     $groups = $pdo->query('SELECT id, name FROM muscle_groups ORDER BY sort_order')->fetchAll();
     $stmt = $pdo->prepare('SELECT id, name FROM workouts WHERE user_id = ? ORDER BY name');
     $stmt->execute([$user['id']]);
+    $workouts = $stmt->fetchAll();
+    $stmt = $pdo->prepare('SELECT gyms_enabled FROM users WHERE id = ?');
+    $stmt->execute([$user['id']]);
 
-    Response::json(['ok' => true, 'muscle_groups' => $groups, 'workouts' => $stmt->fetchAll()]);
+    Response::json([
+        'ok' => true,
+        'muscle_groups' => $groups,
+        'workouts' => $workouts,
+        'gyms_enabled' => (bool) $stmt->fetchColumn(),
+        'gyms' => listGyms((int) $user['id']),
+    ]);
+}
+
+function preferences(): never
+{
+    $user = Auth::requireUser();
+    $data = Request::input();
+    $enabled = boolParam($data, 'gyms_enabled') ? 1 : 0;
+    $stmt = Database::pdo()->prepare('UPDATE users SET gyms_enabled = ? WHERE id = ?');
+    $stmt->execute([$enabled, $user['id']]);
+    Response::json(['ok' => true, 'gyms_enabled' => (bool) $enabled]);
+}
+
+function gyms(string $method): never
+{
+    $user = Auth::requireUser();
+    if ($method === 'GET') {
+        Response::json(['ok' => true, 'gyms' => listGyms((int) $user['id'])]);
+    }
+    if ($method !== 'POST') {
+        Response::error('MÃ©todo no permitido', 405);
+    }
+
+    $name = textParam(Request::input(), 'name', 120);
+    $stmt = Database::pdo()->prepare('INSERT INTO gyms (user_id, name) VALUES (?, ?)');
+    $stmt->execute([$user['id'], $name]);
+    Response::json(['ok' => true, 'id' => (int) Database::pdo()->lastInsertId()]);
+}
+
+function gym(string $method): never
+{
+    $user = Auth::requireUser();
+    $data = Request::input() + $_GET;
+    $id = intParam($data, 'id');
+    assertGymOwner($id, (int) $user['id']);
+
+    if ($method === 'POST') {
+        $name = textParam($data, 'name', 120);
+        $stmt = Database::pdo()->prepare('UPDATE gyms SET name = ? WHERE id = ? AND user_id = ?');
+        $stmt->execute([$name, $id, $user['id']]);
+        Response::json(['ok' => true]);
+    }
+
+    if ($method === 'DELETE') {
+        $stmt = Database::pdo()->prepare('SELECT COUNT(*) FROM records WHERE gym_id = ? AND user_id = ?');
+        $stmt->execute([$id, $user['id']]);
+        if ((int) $stmt->fetchColumn() > 0) {
+            Response::error('No se puede eliminar un gimnasio con registros asociados', 409);
+        }
+
+        $stmt = Database::pdo()->prepare('DELETE FROM gyms WHERE id = ? AND user_id = ?');
+        $stmt->execute([$id, $user['id']]);
+        Response::json(['ok' => true]);
+    }
+
+    Response::error('MÃ©todo no permitido', 405);
+}
+
+function listGyms(int $userId): array
+{
+    $stmt = Database::pdo()->prepare('SELECT id, name FROM gyms WHERE user_id = ? ORDER BY name');
+    $stmt->execute([$userId]);
+    return $stmt->fetchAll();
 }
 
 function workouts(string $method): never
@@ -338,6 +418,130 @@ function syncWorkoutGroups(int $workoutId, array $groupIds): void
     }
 }
 
+function gymsEnabled(int $userId): bool
+{
+    $stmt = Database::pdo()->prepare('SELECT gyms_enabled FROM users WHERE id = ?');
+    $stmt->execute([$userId]);
+    return (bool) $stmt->fetchColumn();
+}
+
+function gymScope(int $userId, array $data, bool $required = true): array
+{
+    if (!gymsEnabled($userId)) {
+        return ['active' => false, 'gym_id' => null, 'none' => false];
+    }
+
+    $raw = $data['gym_id'] ?? null;
+    if ($raw === 'none') {
+        return ['active' => true, 'gym_id' => null, 'none' => true];
+    }
+
+    $gymId = filter_var($raw, FILTER_VALIDATE_INT);
+    if (!$gymId || $gymId < 1) {
+        if ($required) {
+            Response::error('Selecciona un gimnasio');
+        }
+        return ['active' => true, 'gym_id' => null, 'none' => false, 'missing' => true];
+    }
+
+    assertGymOwner((int) $gymId, $userId);
+    return ['active' => true, 'gym_id' => (int) $gymId, 'none' => false];
+}
+
+function applyGymScope(string &$where, array &$params, array $scope, string $column = 'r.gym_id'): void
+{
+    if (!$scope['active']) {
+        return;
+    }
+    if (!empty($scope['gym_id'])) {
+        $where .= " AND {$column} = ?";
+        $params[] = $scope['gym_id'];
+        return;
+    }
+    if (!empty($scope['none'])) {
+        $where .= " AND {$column} IS NULL";
+    }
+}
+
+function recordGymIdForCreate(int $userId, array $data): ?int
+{
+    if (!gymsEnabled($userId)) {
+        return null;
+    }
+
+    $gymId = filter_var($data['gym_id'] ?? null, FILTER_VALIDATE_INT);
+    if (!$gymId || $gymId < 1) {
+        Response::error('Selecciona un gimnasio');
+    }
+    assertGymOwner((int) $gymId, $userId);
+    return (int) $gymId;
+}
+
+function optionalRecordGymId(int $userId, array $data): ?int
+{
+    if (($data['gym_id'] ?? null) === 'none' || ($data['gym_id'] ?? null) === '') {
+        return null;
+    }
+
+    $gymId = filter_var($data['gym_id'] ?? null, FILTER_VALIDATE_INT);
+    if (!$gymId || $gymId < 1) {
+        Response::error('Gimnasio invÃ¡lido');
+    }
+    assertGymOwner((int) $gymId, $userId);
+    return (int) $gymId;
+}
+
+function gymIdsParam(array $data, int $userId): array
+{
+    $ids = array_values(array_unique(array_map('intval', $data['gym_ids'] ?? [])));
+    $ids = array_values(array_filter($ids, static fn (int $id): bool => $id > 0));
+    foreach ($ids as $id) {
+        assertGymOwner($id, $userId);
+    }
+    return $ids;
+}
+
+function syncExerciseGyms(int $exerciseId, array $gymIds): void
+{
+    $pdo = Database::pdo();
+    $pdo->prepare('DELETE FROM exercise_gyms WHERE exercise_id = ?')->execute([$exerciseId]);
+    if (!$gymIds) {
+        return;
+    }
+    $stmt = $pdo->prepare('INSERT INTO exercise_gyms (exercise_id, gym_id) VALUES (?, ?)');
+    foreach ($gymIds as $gymId) {
+        $stmt->execute([$exerciseId, $gymId]);
+    }
+}
+
+function assertExerciseAvailableInGym(int $exerciseId, ?int $gymId): void
+{
+    if (!$gymId) {
+        return;
+    }
+
+    $pdo = Database::pdo();
+    $stmt = $pdo->prepare('SELECT COUNT(*) FROM exercise_gyms WHERE exercise_id = ?');
+    $stmt->execute([$exerciseId]);
+    if ((int) $stmt->fetchColumn() < 1) {
+        return;
+    }
+
+    $stmt = $pdo->prepare('SELECT COUNT(*) FROM exercise_gyms WHERE exercise_id = ? AND gym_id = ?');
+    $stmt->execute([$exerciseId, $gymId]);
+    if ((int) $stmt->fetchColumn() < 1) {
+        Response::error('Este ejercicio no estÃ¡ disponible en el gimnasio seleccionado', 409);
+    }
+}
+
+function parseIdList(?string $value): array
+{
+    if (!$value) {
+        return [];
+    }
+    return array_map('intval', array_filter(explode(',', $value), static fn (string $item): bool => $item !== ''));
+}
+
 function exercises(): never
 {
     $user = Auth::requireUser();
@@ -348,6 +552,7 @@ function exercises(): never
 
     $groupId = filter_var($_GET['muscle_group_id'] ?? null, FILTER_VALIDATE_INT);
     $workoutId = filter_var($_GET['workout_id'] ?? null, FILTER_VALIDATE_INT);
+    $scope = gymScope((int) $user['id'], $_GET, false);
 
     if ($groupId && $groupId > 0) {
         $where .= ' AND e.muscle_group_id = ?';
@@ -357,18 +562,31 @@ function exercises(): never
         $join = 'JOIN workout_muscle_groups wmg ON wmg.muscle_group_id = e.muscle_group_id AND wmg.workout_id = ?';
         array_unshift($params, (int) $workoutId);
     }
+    if (!empty($scope['gym_id'])) {
+        $where .= ' AND (NOT EXISTS (SELECT 1 FROM exercise_gyms eg_any WHERE eg_any.exercise_id = e.id) OR EXISTS (SELECT 1 FROM exercise_gyms eg_match WHERE eg_match.exercise_id = e.id AND eg_match.gym_id = ?))';
+        $params[] = $scope['gym_id'];
+    }
 
     $stmt = $pdo->prepare("
-        SELECT e.id, e.muscle_group_id, e.name, e.metric_type, e.notes, COUNT(r.id) AS record_count
+        SELECT
+          e.id,
+          e.muscle_group_id,
+          e.name,
+          e.metric_type,
+          e.notes,
+          (SELECT COUNT(*) FROM records r WHERE r.exercise_id = e.id AND r.user_id = e.user_id) AS record_count,
+          (SELECT GROUP_CONCAT(eg.gym_id ORDER BY eg.gym_id) FROM exercise_gyms eg WHERE eg.exercise_id = e.id) AS gym_ids
         FROM exercises e
         {$join}
-        LEFT JOIN records r ON r.exercise_id = e.id AND r.user_id = e.user_id
         WHERE {$where}
-        GROUP BY e.id, e.muscle_group_id, e.name, e.metric_type, e.notes
         ORDER BY e.muscle_group_id, e.name
     ");
     $stmt->execute($params);
-    Response::json(['ok' => true, 'exercises' => $stmt->fetchAll()]);
+    $exercises = array_map(static function (array $exercise): array {
+        $exercise['gym_ids'] = parseIdList($exercise['gym_ids'] ?? null);
+        return $exercise;
+    }, $stmt->fetchAll());
+    Response::json(['ok' => true, 'exercises' => $exercises]);
 }
 
 function exercise(string $method): never
@@ -382,9 +600,14 @@ function exercise(string $method): never
         $name = textParam($data, 'name', 140);
         $metric = metricParam($data);
         $notes = textParam($data, 'notes', 2000, false);
+        $gymIds = gymIdsParam($data, (int) $user['id']);
+        $pdo->beginTransaction();
         $stmt = $pdo->prepare('INSERT INTO exercises (user_id, muscle_group_id, name, metric_type, notes) VALUES (?, ?, ?, ?, ?)');
         $stmt->execute([$user['id'], $groupId, $name, $metric, $notes]);
-        Response::json(['ok' => true, 'id' => (int) $pdo->lastInsertId()]);
+        $exerciseId = (int) $pdo->lastInsertId();
+        syncExerciseGyms($exerciseId, $gymIds);
+        $pdo->commit();
+        Response::json(['ok' => true, 'id' => $exerciseId]);
     }
 
     $id = intParam($data, 'id');
@@ -401,6 +624,8 @@ function exercise(string $method): never
             $name = textParam($data, 'name', 140);
             $metric = metricParam($data);
             $notes = textParam($data, 'notes', 2000, false);
+            $hasGymIds = array_key_exists('gym_ids', $data);
+            $gymIds = $hasGymIds ? gymIdsParam($data, (int) $user['id']) : [];
 
             $stmt = $pdo->prepare('SELECT metric_type FROM exercises WHERE id = ? AND user_id = ?');
             $stmt->execute([$id, $user['id']]);
@@ -412,8 +637,13 @@ function exercise(string $method): never
                 Response::error('No se puede cambiar el tipo de marca de un ejercicio con registros guardados', 409);
             }
 
+            $pdo->beginTransaction();
             $stmt = $pdo->prepare('UPDATE exercises SET name = ?, muscle_group_id = ?, metric_type = ?, notes = ? WHERE id = ? AND user_id = ?');
             $stmt->execute([$name, $groupId, $metric, $notes, $id, $user['id']]);
+            if ($hasGymIds) {
+                syncExerciseGyms($id, $gymIds);
+            }
+            $pdo->commit();
             Response::json(['ok' => true]);
         }
 
@@ -432,17 +662,22 @@ function exerciseSummary(): never
     $exerciseId = intParam($_GET, 'exercise_id');
     assertExerciseOwner($exerciseId, (int) $user['id']);
     $pdo = Database::pdo();
+    $scope = gymScope((int) $user['id'], $_GET, true);
 
     $stmt = $pdo->prepare('SELECT id, name, metric_type, notes FROM exercises WHERE id = ? AND user_id = ?');
     $stmt->execute([$exerciseId, $user['id']]);
     $exercise = $stmt->fetch();
 
-    $stmt = $pdo->prepare('SELECT MAX(value) AS best FROM records WHERE exercise_id = ? AND user_id = ?');
-    $stmt->execute([$exerciseId, $user['id']]);
+    $where = 'exercise_id = ? AND user_id = ?';
+    $params = [$exerciseId, $user['id']];
+    applyGymScope($where, $params, $scope, 'gym_id');
+
+    $stmt = $pdo->prepare("SELECT MAX(value) AS best FROM records WHERE {$where}");
+    $stmt->execute($params);
     $best = $stmt->fetch()['best'] ?? null;
 
-    $stmt = $pdo->prepare('SELECT value, metric_type, note, recorded_at FROM records WHERE exercise_id = ? AND user_id = ? ORDER BY recorded_at DESC, id DESC LIMIT 1');
-    $stmt->execute([$exerciseId, $user['id']]);
+    $stmt = $pdo->prepare("SELECT value, metric_type, note, recorded_at FROM records WHERE {$where} ORDER BY recorded_at DESC, id DESC LIMIT 1");
+    $stmt->execute($params);
 
     Response::json(['ok' => true, 'exercise' => $exercise, 'rm' => $best, 'last_record' => $stmt->fetch() ?: null]);
 }
@@ -458,11 +693,13 @@ function records(string $method): never
         $workoutId = intParam($data, 'workout_id');
         assertExerciseOwner($exerciseId, (int) $user['id']);
         assertWorkoutOwner($workoutId, (int) $user['id']);
+        $gymId = recordGymIdForCreate((int) $user['id'], $data);
+        assertExerciseAvailableInGym($exerciseId, $gymId);
         $value = numericValue($data);
         $metric = exerciseMetric($exerciseId, (int) $user['id']);
         $note = textParam($data, 'note', 2000, false);
-        $stmt = $pdo->prepare('INSERT INTO records (user_id, exercise_id, workout_id, value, metric_type, note) VALUES (?, ?, ?, ?, ?, ?)');
-        $stmt->execute([$user['id'], $exerciseId, $workoutId, $value, $metric, $note]);
+        $stmt = $pdo->prepare('INSERT INTO records (user_id, exercise_id, workout_id, gym_id, value, metric_type, note) VALUES (?, ?, ?, ?, ?, ?, ?)');
+        $stmt->execute([$user['id'], $exerciseId, $workoutId, $gymId, $value, $metric, $note]);
         Response::json(['ok' => true, 'id' => (int) $pdo->lastInsertId()]);
     }
 
@@ -471,6 +708,12 @@ function records(string $method): never
     if ($method === 'POST') {
         $value = numericValue($data);
         $note = textParam($data, 'note', 2000, false);
+        if (array_key_exists('gym_id', $data)) {
+            $gymId = optionalRecordGymId((int) $user['id'], $data);
+            $stmt = $pdo->prepare('UPDATE records SET value = ?, note = ?, gym_id = ? WHERE id = ? AND user_id = ?');
+            $stmt->execute([$value, $note, $gymId, $id, $user['id']]);
+            Response::json(['ok' => true]);
+        }
         $stmt = $pdo->prepare('UPDATE records SET value = ?, note = ? WHERE id = ? AND user_id = ?');
         $stmt->execute([$value, $note, $id, $user['id']]);
         Response::json(['ok' => true]);
@@ -490,13 +733,21 @@ function history(): never
     $exerciseId = intParam($_GET, 'exercise_id');
     assertExerciseOwner($exerciseId, (int) $user['id']);
     $pdo = Database::pdo();
+    $scope = gymScope((int) $user['id'], $_GET, true);
 
-    $stmt = $pdo->prepare('SELECT r.id, r.value, r.metric_type, r.note, r.recorded_at, w.name AS workout_name FROM records r JOIN workouts w ON w.id = r.workout_id WHERE r.user_id = ? AND r.exercise_id = ? ORDER BY r.recorded_at DESC, r.id DESC');
-    $stmt->execute([$user['id'], $exerciseId]);
+    $where = 'r.user_id = ? AND r.exercise_id = ?';
+    $params = [$user['id'], $exerciseId];
+    applyGymScope($where, $params, $scope, 'r.gym_id');
+
+    $stmt = $pdo->prepare("SELECT r.id, r.gym_id, g.name AS gym_name, r.value, r.metric_type, r.note, r.recorded_at, w.name AS workout_name FROM records r JOIN workouts w ON w.id = r.workout_id LEFT JOIN gyms g ON g.id = r.gym_id WHERE {$where} ORDER BY r.recorded_at DESC, r.id DESC");
+    $stmt->execute($params);
     $records = $stmt->fetchAll();
 
-    $stmt = $pdo->prepare('SELECT DATE(recorded_at) AS day, MAX(value) AS value FROM records WHERE user_id = ? AND exercise_id = ? GROUP BY DATE(recorded_at) ORDER BY day');
-    $stmt->execute([$user['id'], $exerciseId]);
+    $chartWhere = 'user_id = ? AND exercise_id = ?';
+    $chartParams = [$user['id'], $exerciseId];
+    applyGymScope($chartWhere, $chartParams, $scope, 'gym_id');
+    $stmt = $pdo->prepare("SELECT DATE(recorded_at) AS day, MAX(value) AS value FROM records WHERE {$chartWhere} GROUP BY DATE(recorded_at) ORDER BY day");
+    $stmt->execute($chartParams);
 
     Response::json(['ok' => true, 'records' => $records, 'chart' => $stmt->fetchAll()]);
 }
@@ -510,8 +761,9 @@ function exportData(): never
     if ($format === 'json') {
         downloadJson('gym-tracker-backup.json', [
             'schema' => 'gym-tracker-export',
-            'version' => 1,
+            'version' => 2,
             'exported_at' => gmdate('c'),
+            'gyms' => exportGyms($userId),
             'workouts' => exportWorkouts($userId),
             'exercises' => exportExercises($userId),
             'records' => exportRecords($userId),
@@ -524,13 +776,13 @@ function exportData(): never
 
     $type = (string) ($_GET['type'] ?? '');
     if ($type === 'exercises') {
-        downloadCsv('exercises.csv', ['muscle_group', 'name', 'metric_type', 'notes'], exportExerciseCsvRows($userId));
+        downloadCsv('exercises.csv', ['muscle_group', 'name', 'metric_type', 'notes', 'gyms'], exportExerciseCsvRows($userId));
     }
     if ($type === 'workouts') {
         downloadCsv('workouts.csv', ['name', 'muscle_groups'], exportWorkoutCsvRows($userId));
     }
     if ($type === 'records') {
-        downloadCsv('records.csv', ['muscle_group', 'exercise', 'workout', 'value', 'metric_type', 'note', 'recorded_at'], exportRecordCsvRows($userId));
+        downloadCsv('records.csv', ['muscle_group', 'exercise', 'workout', 'gym', 'value', 'metric_type', 'note', 'recorded_at'], exportRecordCsvRows($userId));
     }
 
     Response::error('Tipo de CSV no soportado');
@@ -559,27 +811,52 @@ function exportWorkouts(int $userId): array
     return array_values($workouts);
 }
 
+function exportGyms(int $userId): array
+{
+    $stmt = Database::pdo()->prepare('SELECT name FROM gyms WHERE user_id = ? ORDER BY name');
+    $stmt->execute([$userId]);
+    return $stmt->fetchAll();
+}
+
 function exportExercises(int $userId): array
 {
     $stmt = Database::pdo()->prepare("
-        SELECT mg.name AS muscle_group, e.name, e.metric_type, e.notes
+        SELECT mg.name AS muscle_group, e.name, e.metric_type, e.notes, g.name AS gym
         FROM exercises e
         JOIN muscle_groups mg ON mg.id = e.muscle_group_id
+        LEFT JOIN exercise_gyms eg ON eg.exercise_id = e.id
+        LEFT JOIN gyms g ON g.id = eg.gym_id
         WHERE e.user_id = ?
-        ORDER BY mg.sort_order, e.name
+        ORDER BY mg.sort_order, e.name, g.name
     ");
     $stmt->execute([$userId]);
-    return $stmt->fetchAll();
+    $exercises = [];
+    foreach ($stmt->fetchAll() as $row) {
+        $key = $row['muscle_group'] . '|' . $row['name'];
+        $exercises[$key] ??= [
+            'muscle_group' => $row['muscle_group'],
+            'name' => $row['name'],
+            'metric_type' => $row['metric_type'],
+            'notes' => $row['notes'],
+            'gyms' => [],
+        ];
+        if ($row['gym']) {
+            $exercises[$key]['gyms'][] = $row['gym'];
+        }
+    }
+
+    return array_values($exercises);
 }
 
 function exportRecords(int $userId): array
 {
     $stmt = Database::pdo()->prepare("
-        SELECT mg.name AS muscle_group, e.name AS exercise, w.name AS workout, r.value, r.metric_type, r.note, r.recorded_at
+        SELECT mg.name AS muscle_group, e.name AS exercise, w.name AS workout, g.name AS gym, r.value, r.metric_type, r.note, r.recorded_at
         FROM records r
         JOIN exercises e ON e.id = r.exercise_id
         JOIN muscle_groups mg ON mg.id = e.muscle_group_id
         JOIN workouts w ON w.id = r.workout_id
+        LEFT JOIN gyms g ON g.id = r.gym_id
         WHERE r.user_id = ?
         ORDER BY r.recorded_at, r.id
     ");
@@ -594,6 +871,7 @@ function exportExerciseCsvRows(int $userId): array
         $row['name'],
         $row['metric_type'],
         $row['notes'] ?? '',
+        implode('|', $row['gyms'] ?? []),
     ], exportExercises($userId));
 }
 
@@ -611,6 +889,7 @@ function exportRecordCsvRows(int $userId): array
         $row['muscle_group'],
         $row['exercise'],
         $row['workout'],
+        $row['gym'] ?? '',
         $row['value'],
         $row['metric_type'],
         $row['note'] ?? '',
@@ -793,7 +1072,7 @@ function previewExerciseCsvImport(int $userId, string $content): array
     $header = str_getcsv(array_shift($lines), $delimiter);
     $expected = ['muscle_group', 'name', 'metric_type', 'notes'];
     if ($header !== $expected) {
-        return importResult([], ['Cabecera CSV invÃ¡lida. Usa: muscle_group,name,metric_type,notes'], []);
+        return importResult([], ['Cabecera CSV inválida. Usa: muscle_group,name,metric_type,notes,gyms'], []);
     }
 
     $context = importContext($userId);
@@ -835,6 +1114,13 @@ function importContext(int $userId): array
         $workouts[normalizeKey($row['name'])] = ['id' => (int) $row['id'], 'name' => $row['name']];
     }
 
+    $stmt = $pdo->prepare('SELECT id, name FROM gyms WHERE user_id = ?');
+    $stmt->execute([$userId]);
+    $gyms = [];
+    foreach ($stmt->fetchAll() as $row) {
+        $gyms[normalizeKey($row['name'])] = ['id' => (int) $row['id'], 'name' => $row['name']];
+    }
+
     $stmt = $pdo->prepare('SELECT e.id, e.muscle_group_id, e.name, e.metric_type, COUNT(r.id) AS record_count FROM exercises e LEFT JOIN records r ON r.exercise_id = e.id AND r.user_id = e.user_id WHERE e.user_id = ? GROUP BY e.id, e.muscle_group_id, e.name, e.metric_type');
     $stmt->execute([$userId]);
     $exercises = [];
@@ -847,7 +1133,7 @@ function importContext(int $userId): array
         ];
     }
 
-    return ['groups' => $groups, 'workouts' => $workouts, 'exercises' => $exercises];
+    return ['groups' => $groups, 'workouts' => $workouts, 'exercises' => $exercises, 'gyms' => $gyms];
 }
 
 function normalizeWorkoutImport(array $row, array $context, int $rowNumber, array &$errors): ?array
@@ -964,6 +1250,7 @@ function normalizeRecordImport(array $row, array $context, int $rowNumber, array
 function importResult(array $plan, array $errors, array $warnings): array
 {
     $summary = [
+        'gyms' => count($plan['gyms'] ?? []),
         'workouts' => count($plan['workouts'] ?? []),
         'exercises' => count($plan['exercises'] ?? []),
         'records' => count($plan['records'] ?? []),
@@ -977,9 +1264,14 @@ function importResult(array $plan, array $errors, array $warnings): array
 function applyImportPlan(int $userId, array $plan): array
 {
     $pdo = Database::pdo();
-    $summary = ['workouts' => 0, 'exercises' => 0, 'records' => 0, 'skipped_records' => 0];
+    $summary = ['gyms' => 0, 'workouts' => 0, 'exercises' => 0, 'records' => 0, 'skipped_records' => 0];
     $pdo->beginTransaction();
     try {
+        foreach ($plan['gyms'] ?? [] as $gym) {
+            if (!ensureGym($userId, $gym['name'], false)) {
+                $summary['gyms']++;
+            }
+        }
         foreach ($plan['workouts'] ?? [] as $workout) {
             $workoutId = ensureWorkout($userId, $workout['name'], $workout['muscle_group_ids']);
             if (!$workout['id']) {
@@ -1027,18 +1319,46 @@ function ensureWorkout(int $userId, string $name, array $groupIds): int
     return $id;
 }
 
+function ensureGym(int $userId, string $name, bool $returnId = true): int|bool
+{
+    $pdo = Database::pdo();
+    $stmt = $pdo->prepare('SELECT id FROM gyms WHERE user_id = ? AND name = ?');
+    $stmt->execute([$userId, $name]);
+    $id = (int) ($stmt->fetchColumn() ?: 0);
+    if ($id) {
+        return $returnId ? $id : true;
+    }
+
+    $stmt = $pdo->prepare('INSERT INTO gyms (user_id, name) VALUES (?, ?)');
+    $stmt->execute([$userId, $name]);
+    $newId = (int) $pdo->lastInsertId();
+    return $returnId ? $newId : false;
+}
+
 function ensureExercise(int $userId, array $exercise): int
 {
     $pdo = Database::pdo();
     if ($exercise['id']) {
         $stmt = $pdo->prepare('UPDATE exercises SET name = ?, muscle_group_id = ?, metric_type = ?, notes = ? WHERE id = ? AND user_id = ?');
         $stmt->execute([$exercise['name'], $exercise['muscle_group_id'], $exercise['metric_type'], $exercise['notes'], $exercise['id'], $userId]);
+        syncExerciseGymNames((int) $exercise['id'], $userId, $exercise['gyms'] ?? []);
         return (int) $exercise['id'];
     }
 
     $stmt = $pdo->prepare('INSERT INTO exercises (user_id, muscle_group_id, name, metric_type, notes) VALUES (?, ?, ?, ?, ?)');
     $stmt->execute([$userId, $exercise['muscle_group_id'], $exercise['name'], $exercise['metric_type'], $exercise['notes']]);
-    return (int) $pdo->lastInsertId();
+    $exerciseId = (int) $pdo->lastInsertId();
+    syncExerciseGymNames($exerciseId, $userId, $exercise['gyms'] ?? []);
+    return $exerciseId;
+}
+
+function syncExerciseGymNames(int $exerciseId, int $userId, array $gymNames): void
+{
+    $ids = [];
+    foreach ($gymNames as $gymName) {
+        $ids[] = (int) ensureGym($userId, (string) $gymName);
+    }
+    syncExerciseGyms($exerciseId, array_values(array_unique($ids)));
 }
 
 function insertRecordIfMissing(int $userId, array $record): bool
@@ -1053,18 +1373,24 @@ function insertRecordIfMissing(int $userId, array $record): bool
         $stmt->execute([$userId, $record['workout_name']]);
         $record['workout_id'] = (int) $stmt->fetchColumn();
     }
+    if (empty($record['gym_id']) && !empty($record['gym_name'])) {
+        $stmt = Database::pdo()->prepare('SELECT id FROM gyms WHERE user_id = ? AND name = ?');
+        $stmt->execute([$userId, $record['gym_name']]);
+        $record['gym_id'] = (int) $stmt->fetchColumn();
+    }
     if (!$record['exercise_id'] || !$record['workout_id']) {
         Response::error('No se pudo resolver un registro importado', 400);
     }
+    $gymId = !empty($record['gym_id']) ? (int) $record['gym_id'] : null;
 
-    $stmt = Database::pdo()->prepare('SELECT COUNT(*) FROM records WHERE user_id = ? AND exercise_id = ? AND workout_id = ? AND recorded_at = ? AND value = ? AND COALESCE(note, "") = ?');
-    $stmt->execute([$userId, $record['exercise_id'], $record['workout_id'], $record['recorded_at'], $record['value'], $record['note']]);
+    $stmt = Database::pdo()->prepare('SELECT COUNT(*) FROM records WHERE user_id = ? AND exercise_id = ? AND workout_id = ? AND COALESCE(gym_id, 0) = COALESCE(?, 0) AND recorded_at = ? AND value = ? AND COALESCE(note, "") = ?');
+    $stmt->execute([$userId, $record['exercise_id'], $record['workout_id'], $gymId, $record['recorded_at'], $record['value'], $record['note']]);
     if ((int) $stmt->fetchColumn() > 0) {
         return false;
     }
 
-    $stmt = Database::pdo()->prepare('INSERT INTO records (user_id, exercise_id, workout_id, value, metric_type, note, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?)');
-    $stmt->execute([$userId, $record['exercise_id'], $record['workout_id'], $record['value'], $record['metric_type'], $record['note'], $record['recorded_at']]);
+    $stmt = Database::pdo()->prepare('INSERT INTO records (user_id, exercise_id, workout_id, gym_id, value, metric_type, note, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+    $stmt->execute([$userId, $record['exercise_id'], $record['workout_id'], $gymId, $record['value'], $record['metric_type'], $record['note'], $record['recorded_at']]);
     return true;
 }
 
@@ -1115,6 +1441,15 @@ function assertExerciseOwner(int $exerciseId, int $userId): void
     $stmt->execute([$exerciseId, $userId]);
     if (!$stmt->fetchColumn()) {
         Response::error('Ejercicio no encontrado', 404);
+    }
+}
+
+function assertGymOwner(int $gymId, int $userId): void
+{
+    $stmt = Database::pdo()->prepare('SELECT id FROM gyms WHERE id = ? AND user_id = ?');
+    $stmt->execute([$gymId, $userId]);
+    if (!$stmt->fetchColumn()) {
+        Response::error('Gimnasio no encontrado', 404);
     }
 }
 

@@ -253,6 +253,54 @@ h3 {
   margin-bottom: 14px;
 }
 
+.manage-section {
+  padding-bottom: 14px;
+}
+
+.manage-section[data-open="false"] {
+  padding-bottom: 16px;
+}
+
+.manage-section[data-open="false"] .section-heading {
+  margin-bottom: 0;
+}
+
+.manage-section[data-open="false"] .manage-section-body {
+  display: none;
+}
+
+.manage-toggle {
+  min-height: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  color: var(--ink);
+  border: 0;
+  padding: 0;
+  text-align: left;
+}
+
+.manage-toggle::after {
+  content: "▾";
+  color: var(--muted);
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.manage-toggle[aria-expanded="false"]::after {
+  content: "▸";
+}
+
+.manage-toggle:active {
+  transform: none;
+}
+
+.manage-section-body {
+  display: grid;
+  gap: 12px;
+}
+
 .flow-panel {
   gap: 12px;
 }
@@ -407,6 +455,18 @@ fieldset {
 .item-main p,
 .record-card p {
   margin: 4px 0 0;
+}
+
+.item.is-editing {
+  grid-template-columns: minmax(0, 1fr);
+  border-color: #b6dcca;
+  background: #fbfefd;
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.item.is-editing .inline-editor {
+  grid-column: 1 / -1;
+  margin-top: 2px;
 }
 
 .action-row {

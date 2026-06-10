@@ -12,6 +12,7 @@ const state = {
   csrfToken: '',
   chart: null,
   authMode: 'login',
+  manageOpenSection: null,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -227,6 +228,7 @@ function bindApp() {
   document.querySelectorAll('.bottom-nav button').forEach((button) => {
     button.addEventListener('click', () => switchTab(button.dataset.tab));
   });
+  bindManageAccordion();
 
   $('onboardingWorkoutBtn').addEventListener('click', () => {
     switchTab('manageTab');
@@ -243,9 +245,15 @@ function bindApp() {
   $('cancelCreateExerciseBtn').addEventListener('click', () => $('quickExerciseForm').classList.add('hidden'));
   $('editNotesBtn').addEventListener('click', () => $('exerciseNotesForm').classList.toggle('hidden'));
   $('gymsEnabledToggle').addEventListener('change', saveGymPreference);
-  $('newGymBtn').addEventListener('click', resetGymForm);
+  $('newGymBtn').addEventListener('click', () => {
+    openManageSection('gyms');
+    resetGymForm();
+  });
   $('cancelGymBtn').addEventListener('click', hideGymForm);
-  $('newWorkoutBtn').addEventListener('click', resetWorkoutForm);
+  $('newWorkoutBtn').addEventListener('click', () => {
+    openManageSection('workouts');
+    resetWorkoutForm();
+  });
   $('cancelWorkoutBtn').addEventListener('click', hideWorkoutForm);
   $('manageExerciseGroupSelect').addEventListener('change', loadManageExercises);
   $('newManageExerciseBtn').addEventListener('click', resetManageExerciseForm);
@@ -267,6 +275,28 @@ function bindApp() {
 function switchTab(tabId) {
   document.querySelectorAll('.screen').forEach((screen) => screen.classList.toggle('active', screen.id === tabId));
   document.querySelectorAll('.bottom-nav button').forEach((button) => button.classList.toggle('active', button.dataset.tab === tabId));
+  if (tabId === 'manageTab') openManageSection(null);
+}
+
+function bindManageAccordion() {
+  document.querySelectorAll('[data-manage-toggle]').forEach((button) => {
+    button.addEventListener('click', () => toggleManageSection(button.dataset.manageToggle));
+  });
+  openManageSection(state.manageOpenSection);
+}
+
+function toggleManageSection(sectionId) {
+  openManageSection(state.manageOpenSection === sectionId ? null : sectionId);
+}
+
+function openManageSection(sectionId = null) {
+  state.manageOpenSection = sectionId;
+  document.querySelectorAll('[data-manage-section]').forEach((section) => {
+    const isOpen = Boolean(sectionId) && section.dataset.manageSection === sectionId;
+    section.dataset.open = String(isOpen);
+    const toggle = section.querySelector('[data-manage-toggle]');
+    if (toggle) toggle.setAttribute('aria-expanded', String(isOpen));
+  });
 }
 
 async function loadBootstrap() {
@@ -325,6 +355,7 @@ function renderGyms() {
   state.gyms.forEach((gym) => {
     const node = document.createElement('article');
     node.className = 'item';
+    node.dataset.entityId = String(gym.id);
     node.innerHTML = `
       <div class="item-main">
         <strong>${escapeHtml(gym.name)}</strong>
@@ -353,6 +384,7 @@ function renderWorkouts() {
   state.workouts.forEach((workout) => {
     const node = document.createElement('article');
     node.className = 'item';
+    node.dataset.entityId = String(workout.id);
     node.innerHTML = `
       <div class="item-main">
         <strong>${escapeHtml(workout.name)}</strong>
@@ -530,6 +562,14 @@ async function saveWorkout(event) {
 
 async function editWorkout(id) {
   const data = await api(`workout&id=${encodeURIComponent(id)}`);
+  if (!placeManagementForm({
+    formId: 'workoutForm',
+    homeId: 'workoutFormHome',
+    createSlotId: 'newWorkoutFormSlot',
+    listId: 'workoutList',
+    sectionId: 'workouts',
+    entityId: id,
+  })) return;
   const form = $('workoutForm');
   form.elements.id.value = data.workout.id;
   form.elements.name.value = data.workout.name;
@@ -539,6 +579,7 @@ async function editWorkout(id) {
   $('workoutFormTitle').textContent = 'Editar entrenamiento';
   form.classList.remove('hidden');
   switchTab('manageTab');
+  openManageSection('workouts');
 }
 
 async function deleteWorkout(id) {
@@ -553,6 +594,13 @@ async function deleteWorkout(id) {
 }
 
 function resetWorkoutForm() {
+  placeManagementForm({
+    formId: 'workoutForm',
+    homeId: 'workoutFormHome',
+    createSlotId: 'newWorkoutFormSlot',
+    listId: 'workoutList',
+    sectionId: 'workouts',
+  });
   const form = $('workoutForm');
   form.reset();
   form.elements.id.value = '';
@@ -564,12 +612,17 @@ function resetWorkoutForm() {
 }
 
 function hideWorkoutForm() {
-  $('workoutForm').classList.add('hidden');
+  hideManagementForm({
+    formId: 'workoutForm',
+    homeId: 'workoutFormHome',
+    listId: 'workoutList',
+  });
 }
 
 async function saveGymPreference() {
   try {
     await send('preferences', { gyms_enabled: $('gymsEnabledToggle').checked });
+    hideGymForm();
     await loadBootstrap();
     showMessage('Preferencias guardadas.');
   } catch (error) {
@@ -579,6 +632,13 @@ async function saveGymPreference() {
 }
 
 function resetGymForm() {
+  placeManagementForm({
+    formId: 'gymForm',
+    homeId: 'gymFormHome',
+    createSlotId: 'newGymFormSlot',
+    listId: 'gymList',
+    sectionId: 'gyms',
+  });
   const form = $('gymForm');
   form.reset();
   form.elements.id.value = '';
@@ -587,12 +647,24 @@ function resetGymForm() {
 }
 
 function hideGymForm() {
-  $('gymForm').classList.add('hidden');
+  hideManagementForm({
+    formId: 'gymForm',
+    homeId: 'gymFormHome',
+    listId: 'gymList',
+  });
 }
 
 function editGym(id) {
   const gym = state.gyms.find((item) => Number(item.id) === Number(id));
   if (!gym) return;
+  if (!placeManagementForm({
+    formId: 'gymForm',
+    homeId: 'gymFormHome',
+    createSlotId: 'newGymFormSlot',
+    listId: 'gymList',
+    sectionId: 'gyms',
+    entityId: id,
+  })) return;
   const form = $('gymForm');
   form.elements.id.value = gym.id;
   form.elements.name.value = gym.name;
@@ -642,10 +714,12 @@ function renderManageExercises() {
   state.manageExercises.forEach((exercise) => {
     const node = document.createElement('article');
     node.className = 'item';
+    node.dataset.entityId = String(exercise.id);
+    node.dataset.exerciseId = String(exercise.id);
     const count = Number(exercise.record_count || 0);
     const gymText = state.gymsEnabled ? ` · ${escapeHtml(exerciseGymLabel(exercise))}` : '';
     node.innerHTML = `
-      <div class="item-main">
+      <div class="item-main" data-exercise-id="${escapeHtml(exercise.id)}">
         <strong>${escapeHtml(exercise.name)}</strong>
         <p class="muted">${escapeHtml(groupName(exercise.muscle_group_id))} · ${exercise.metric_type} · ${count} registros${gymText}</p>
       </div>
@@ -660,7 +734,40 @@ function renderManageExercises() {
   });
 }
 
+function placeManagementForm({ formId, homeId, createSlotId, listId, sectionId, entityId = null }) {
+  openManageSection(sectionId);
+  clearManagementEditing(listId);
+  const form = $(formId);
+  if (entityId === null) {
+    $(createSlotId).appendChild(form);
+    return true;
+  }
+  const item = [...$(listId).querySelectorAll('.item[data-entity-id]')].find((node) => node.dataset.entityId === String(entityId));
+  if (!item) return false;
+  item.classList.add('is-editing');
+  item.appendChild(form);
+  return true;
+}
+
+function hideManagementForm({ formId, homeId, listId }) {
+  const form = $(formId);
+  form.classList.add('hidden');
+  clearManagementEditing(listId);
+  $(homeId).appendChild(form);
+}
+
+function clearManagementEditing(listId) {
+  $(listId).querySelectorAll('.is-editing').forEach((node) => node.classList.remove('is-editing'));
+}
+
 function resetManageExerciseForm() {
+  placeManagementForm({
+    formId: 'exerciseManagementForm',
+    homeId: 'exerciseFormHome',
+    createSlotId: 'newExerciseFormSlot',
+    listId: 'manageExerciseList',
+    sectionId: 'exercises',
+  });
   const form = $('exerciseManagementForm');
   form.reset();
   form.elements.id.value = '';
@@ -678,6 +785,14 @@ function resetManageExerciseForm() {
 function editExercise(id) {
   const exercise = state.manageExercises.find((item) => Number(item.id) === Number(id));
   if (!exercise) return;
+  if (!placeManagementForm({
+    formId: 'exerciseManagementForm',
+    homeId: 'exerciseFormHome',
+    createSlotId: 'newExerciseFormSlot',
+    listId: 'manageExerciseList',
+    sectionId: 'exercises',
+    entityId: id,
+  })) return;
   const form = $('exerciseManagementForm');
   const count = Number(exercise.record_count || 0);
   form.elements.id.value = exercise.id;
@@ -755,7 +870,11 @@ async function refreshExerciseSelectorsAfterManagedSave(groupId) {
 }
 
 function hideManageExerciseForm() {
-  $('exerciseManagementForm').classList.add('hidden');
+  hideManagementForm({
+    formId: 'exerciseManagementForm',
+    homeId: 'exerciseFormHome',
+    listId: 'manageExerciseList',
+  });
 }
 
 async function previewImport(event) {

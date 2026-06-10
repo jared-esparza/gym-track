@@ -177,61 +177,87 @@
       </section>
 
       <section id="manageTab" class="screen">
-        <section id="gymSection" class="panel">
+        <section id="gymSection" class="panel manage-section" data-manage-section="gyms" data-open="false">
           <div class="screen-head section-heading">
             <div>
               <p class="eyebrow">Preferencias</p>
-              <h2>Gimnasios</h2>
+              <h2><button class="manage-toggle" type="button" data-manage-toggle="gyms" aria-expanded="false" aria-controls="manageGymsPanel">Gimnasios</button></h2>
               <p class="muted">Separa marcas cuando el material cambia entre gimnasios.</p>
             </div>
             <button type="button" id="newGymBtn" class="secondary compact">Nuevo</button>
           </div>
-          <label class="check"><input id="gymsEnabledToggle" type="checkbox"> Activar gimnasios</label>
-          <div id="gymList" class="item-list separated"></div>
-          <form id="gymForm" class="stack inline-form inline-editor hidden">
-            <h3 id="gymFormTitle">Nuevo gimnasio</h3>
-            <input name="id" type="hidden">
-            <label>Nombre<input name="name" required maxlength="120" placeholder="Ej. Centro, Norte"></label>
-            <div class="row">
-              <button type="submit">Guardar</button>
-              <button type="button" id="cancelGymBtn" class="ghost">Cancelar</button>
-            </div>
-          </form>
+          <div id="manageGymsPanel" class="manage-section-body">
+            <label class="check"><input id="gymsEnabledToggle" type="checkbox"> Activar gimnasios</label>
+            <div id="newGymFormSlot"></div>
+            <div id="gymList" class="item-list separated"></div>
+          </div>
         </section>
 
-        <section class="panel">
+        <section class="panel manage-section" data-manage-section="workouts" data-open="false">
           <div class="screen-head section-heading">
             <div>
               <p class="eyebrow">Rutinas</p>
-              <h2>Entrenamientos</h2>
+              <h2><button class="manage-toggle" type="button" data-manage-toggle="workouts" aria-expanded="false" aria-controls="manageWorkoutsPanel">Entrenamientos</button></h2>
               <p class="muted">Rutinas y grupos musculares disponibles al entrenar.</p>
             </div>
             <button type="button" id="newWorkoutBtn" class="secondary compact">Nuevo</button>
           </div>
-          <div id="workoutList" class="item-list"></div>
-          <form id="workoutForm" class="stack inline-form inline-editor hidden">
-            <h3 id="workoutFormTitle">Nuevo entrenamiento</h3>
-            <input name="id" type="hidden">
-            <label>Nombre<input name="name" required maxlength="120" placeholder="Ej. Push, Pull, Pierna"></label>
-            <fieldset id="groupCheckboxes"></fieldset>
-            <div class="row">
-              <button type="submit">Guardar</button>
-              <button type="button" id="cancelWorkoutBtn" class="ghost">Cancelar</button>
-            </div>
-          </form>
+          <div id="manageWorkoutsPanel" class="manage-section-body">
+            <div id="newWorkoutFormSlot"></div>
+            <div id="workoutList" class="item-list"></div>
+          </div>
         </section>
 
-        <section class="panel">
+        <section class="panel manage-section" data-manage-section="exercises" data-open="false">
           <div class="screen-head section-heading">
             <div>
               <p class="eyebrow">Catálogo</p>
-              <h2>Ejercicios</h2>
+              <h2><button class="manage-toggle" type="button" data-manage-toggle="exercises" aria-expanded="false" aria-controls="manageExercisesPanel">Ejercicios</button></h2>
               <p class="muted">Listado por grupo muscular para crear o corregir ejercicios.</p>
             </div>
             <button type="button" id="newManageExerciseBtn" class="secondary compact">Nuevo</button>
           </div>
-          <label>Grupo muscular<select id="manageExerciseGroupSelect"></select></label>
-          <div id="manageExerciseList" class="item-list separated"></div>
+          <div id="manageExercisesPanel" class="manage-section-body">
+            <label>Grupo muscular<select id="manageExerciseGroupSelect"></select></label>
+            <div id="newExerciseFormSlot"></div>
+            <div id="manageExerciseList" class="item-list separated"></div>
+          </div>
+        </section>
+
+        <section id="dataSection" class="panel manage-section" data-manage-section="data" data-open="false">
+          <div class="screen-head section-heading">
+            <div>
+              <p class="eyebrow">Backup</p>
+              <h2><button class="manage-toggle" type="button" data-manage-toggle="data" aria-expanded="false" aria-controls="manageDataPanel">Datos</button></h2>
+              <p class="muted">Exporta una copia restaurable o importa ejercicios y backups JSON.</p>
+            </div>
+          </div>
+          <div id="manageDataPanel" class="manage-section-body">
+            <div class="data-actions">
+              <a id="exportJsonBtn" class="button-link" href="api.php?action=export&format=json">Exportar backup JSON</a>
+              <a class="button-link secondary" href="api.php?action=export&format=csv&type=exercises">Ejercicios CSV</a>
+              <a class="button-link secondary" href="api.php?action=export&format=csv&type=workouts">Entrenamientos CSV</a>
+              <a class="button-link secondary" href="api.php?action=export&format=csv&type=records">Registros CSV</a>
+            </div>
+            <form id="importForm" class="stack inline-form">
+              <h3>Importar datos</h3>
+              <label>Archivo JSON o CSV<input id="importFileInput" name="file" type="file" accept=".json,.csv,application/json,text/csv" required></label>
+              <button type="submit" class="secondary">Previsualizar importacion</button>
+            </form>
+            <section id="importPreviewPanel" class="inline-form hidden">
+              <h3>Previsualizacion</h3>
+              <div id="importSummary" class="summary-grid"></div>
+              <div id="importWarnings" class="import-list"></div>
+              <div id="importErrors" class="import-list error-list"></div>
+              <div class="row">
+                <button id="confirmImportBtn" type="button">Confirmar importacion</button>
+                <button id="cancelImportBtn" type="button" class="ghost">Cancelar</button>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <div id="exerciseFormHome" class="hidden">
           <form id="exerciseManagementForm" class="stack inline-form inline-editor hidden">
             <h3 id="exerciseManagementTitle">Nuevo ejercicio</h3>
             <input name="id" type="hidden">
@@ -254,38 +280,30 @@
               <button type="button" id="cancelManageExerciseBtn" class="ghost">Cancelar</button>
             </div>
           </form>
-        </section>
-
-        <section id="dataSection" class="panel">
-          <div class="screen-head section-heading">
-            <div>
-              <p class="eyebrow">Backup</p>
-              <h2>Datos</h2>
-              <p class="muted">Exporta una copia restaurable o importa ejercicios y backups JSON.</p>
-            </div>
-          </div>
-          <div class="data-actions">
-            <a id="exportJsonBtn" class="button-link" href="api.php?action=export&format=json">Exportar backup JSON</a>
-            <a class="button-link secondary" href="api.php?action=export&format=csv&type=exercises">Ejercicios CSV</a>
-            <a class="button-link secondary" href="api.php?action=export&format=csv&type=workouts">Entrenamientos CSV</a>
-            <a class="button-link secondary" href="api.php?action=export&format=csv&type=records">Registros CSV</a>
-          </div>
-          <form id="importForm" class="stack inline-form">
-            <h3>Importar datos</h3>
-            <label>Archivo JSON o CSV<input id="importFileInput" name="file" type="file" accept=".json,.csv,application/json,text/csv" required></label>
-            <button type="submit" class="secondary">Previsualizar importacion</button>
-          </form>
-          <section id="importPreviewPanel" class="inline-form hidden">
-            <h3>Previsualizacion</h3>
-            <div id="importSummary" class="summary-grid"></div>
-            <div id="importWarnings" class="import-list"></div>
-            <div id="importErrors" class="import-list error-list"></div>
+        </div>
+        <div id="gymFormHome" class="hidden">
+          <form id="gymForm" class="stack inline-form inline-editor hidden">
+            <h3 id="gymFormTitle">Nuevo gimnasio</h3>
+            <input name="id" type="hidden">
+            <label>Nombre<input name="name" required maxlength="120" placeholder="Ej. Centro, Norte"></label>
             <div class="row">
-              <button id="confirmImportBtn" type="button">Confirmar importacion</button>
-              <button id="cancelImportBtn" type="button" class="ghost">Cancelar</button>
+              <button type="submit">Guardar</button>
+              <button type="button" id="cancelGymBtn" class="ghost">Cancelar</button>
             </div>
-          </section>
-        </section>
+          </form>
+        </div>
+        <div id="workoutFormHome" class="hidden">
+          <form id="workoutForm" class="stack inline-form inline-editor hidden">
+            <h3 id="workoutFormTitle">Nuevo entrenamiento</h3>
+            <input name="id" type="hidden">
+            <label>Nombre<input name="name" required maxlength="120" placeholder="Ej. Push, Pull, Pierna"></label>
+            <fieldset id="groupCheckboxes"></fieldset>
+            <div class="row">
+              <button type="submit">Guardar</button>
+              <button type="button" id="cancelWorkoutBtn" class="ghost">Cancelar</button>
+            </div>
+          </form>
+        </div>
       </section>
 
       <nav class="bottom-nav" aria-label="Navegación principal">

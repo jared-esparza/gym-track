@@ -221,7 +221,10 @@ Tests unitarios con PHPUnit.
   - HTML: `manageTab`.
   - JS: `renderWorkouts()`, `saveWorkout()`, `renderManageExercises()`, `saveManagedExercise()`, `deleteExercise()`, `previewImport()`, `confirmImport()`.
   - API: `workouts`, `workout`, `exercises`, `exercise`, `export`, `import-preview`, `import-confirm`, `import-cancel`.
+  - Nota: los apartados de Gestion son un acordeon exclusivo y pueden estar todos cerrados; al entrar todos aparecen cerrados por defecto.
   - Nota: el filtro de ejercicios arranca en "Todos los grupos"; solo se envia `muscle_group_id` cuando el usuario elige un grupo concreto.
+  - Nota: al editar gimnasios, entrenamientos o ejercicios, el formulario se mueve dentro de la tarjeta del elemento; al crear uno nuevo, aparece antes de la lista del apartado.
+  - Nota: para nuevas entidades editables de Gestion, reutilizar el helper JS compartido de colocacion de formularios en tarjeta.
   - Nota: el apartado Datos exporta backup JSON restaurable, CSVs de consulta e importa JSON o CSV de ejercicios con previsualizacion.
 
 ## Validaciones recomendadas tras cambios

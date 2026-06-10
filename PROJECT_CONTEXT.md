@@ -185,10 +185,11 @@ Pantallas principales:
   - La edicion permite corregir el gimnasio del registro, incluido dejarlo como "Sin gimnasio".
   - Eliminar registros con confirmación.
 - Gestión:
+  - Los apartados de Gestion funcionan como acordeon exclusivo y pueden estar todos cerrados. Al entrar en Gestion todos aparecen cerrados por defecto.
   - Apartado de entrenamientos: listar, crear, editar y eliminar.
   - Apartado de gimnasios: activar/desactivar la feature, listar, crear, editar y eliminar gimnasios.
   - No se puede eliminar un gimnasio con registros asociados; si solo aparece en allow-lists de ejercicios, se elimina y se limpian esas relaciones.
-  - Apartado de ejercicios: listar todos por defecto, filtrar por grupo, crear, editar y eliminar.
+  - Apartados de gimnasios, entrenamientos y ejercicios: listar, crear, editar y eliminar. La edicion se abre dentro de la tarjeta del elemento; la creacion se abre al inicio del apartado correspondiente.
   - Con gimnasios activos, el formulario de ejercicio permite elegir gimnasios permitidos. Sin seleccion significa disponible en todos los gimnasios del usuario.
   - Al eliminar un ejercicio se avisa de que también se eliminarán todos sus registros de marcas asociados.
   - Apartado de datos: exportar backup JSON v2, exportar CSVs e importar con previsualizacion y confirmacion.

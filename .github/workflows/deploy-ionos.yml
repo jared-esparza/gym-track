@@ -1,0 +1,65 @@
+name: Deploy to IONOS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  test-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, pdo_mysql
+          coverage: none
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Validate Composer
+        run: composer validate --strict
+
+      - name: Install dev dependencies
+        run: composer install --prefer-dist --no-progress --no-interaction
+
+      - name: Run PHPUnit
+        run: composer test
+
+      - name: Lint PHP
+        run: composer lint
+
+      - name: Check JavaScript syntax
+        run: node --check public/assets/app.js
+
+      - name: Install production dependencies
+        run: composer install --no-dev --prefer-dist --no-progress --no-interaction --optimize-autoloader
+
+      - name: Deploy over SFTP
+        uses: wlixcc/SFTP-Deploy-Action@v1.2.6
+        with:
+          server: ${{ secrets.IONOS_SFTP_HOST }}
+          username: ${{ secrets.IONOS_SFTP_USER }}
+          password: ${{ secrets.IONOS_SFTP_PASSWORD }}
+          port: ${{ secrets.IONOS_SFTP_PORT }}
+          local_path: './*'
+          remote_path: '/'
+          sftp_only: true
+          delete_remote_files: false
+          exclude: |
+            **/.git*
+            **/.github/**
+            **/.env
+            **/.superpowers/**
+            **/.composer-cache/**
+            **/.phpunit*
+            **/tests/**
+            **/node_modules/**

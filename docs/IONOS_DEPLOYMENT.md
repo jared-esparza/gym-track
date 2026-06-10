@@ -24,7 +24,9 @@ Fuentes utiles de IONOS:
    - Puerto `22`.
 6. Confirma que la raiz SFTP del usuario es la carpeta del proyecto. En esta guia el despliegue subira a `/`.
 
-Si IONOS permite apuntar el document root del dominio directamente a `public/`, esa es la configuracion ideal. Si no, usa la raiz del proyecto: el `.htaccess` de la raiz reenvia `index.html`, `api.php` y `assets/` hacia `public/`.
+Si IONOS permite apuntar el document root del dominio directamente a `public/`, esa es la configuracion ideal: el navegador solo vera `index.html`, `api.php` y `assets/`, y el codigo PHP de `app/`, `vendor/`, `storage/` y `.env` quedara fuera de la raiz publica.
+
+Si no puedes apuntar el dominio a `public/`, usa la raiz del proyecto, pero confirma por SFTP que existe el archivo `.htaccess` en esa raiz. Ese archivo reenvia `index.html`, `api.php` y `assets/` hacia `public/`. Sin ese `.htaccess`, el dominio puede quedarse en blanco o no encontrar ningun `index` valido en la raiz.
 
 ## 2. Crear la base de datos
 
@@ -150,7 +152,7 @@ jobs:
           username: ${{ secrets.IONOS_SFTP_USER }}
           password: ${{ secrets.IONOS_SFTP_PASSWORD }}
           port: ${{ secrets.IONOS_SFTP_PORT }}
-          local_path: './*'
+          local_path: './'
           remote_path: '/'
           sftp_only: true
           delete_remote_files: false
@@ -182,6 +184,11 @@ Este workflow sube `vendor/` ya construido porque un hosting compartido puede no
 ```text
 https://tu-dominio.com/index.html
 ```
+
+Si el dominio muestra una pagina en blanco, revisa primero estas dos cosas:
+
+1. El document root del dominio en IONOS debe apuntar a `public/` si tu plan lo permite.
+2. Si el dominio apunta a la raiz del proyecto, el archivo `.htaccess` de la raiz debe existir en el servidor remoto. Algunos patrones de subida como `./*` pueden dejar fuera archivos ocultos.
 
 ## 7. Checklist postdeploy
 

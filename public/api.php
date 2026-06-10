@@ -7,6 +7,8 @@ use GymTracker\Config;
 use GymTracker\Database;
 use GymTracker\Mailer;
 use GymTracker\Request;
+use GymTracker\RegistrationException;
+use GymTracker\RegistrationService;
 use GymTracker\Response;
 use GymTracker\ImportService;
 use GymTracker\RateLimiter;
@@ -146,13 +148,14 @@ function register(): never
         Response::error('Email válido y contraseña de 8 caracteres mínimo requeridos');
     }
 
-    $token = token();
     $pdo = Database::pdo();
-    $stmt = $pdo->prepare('INSERT INTO users (email, password_hash, verification_token_hash, verification_expires_at) VALUES (?, ?, ?, DATE_ADD(NOW(), INTERVAL 24 HOUR))');
-    $stmt->execute([$email, password_hash($password, PASSWORD_DEFAULT), tokenHash($token)]);
-    sendVerification(['email' => $email], $token);
+    try {
+        $result = RegistrationService::register($pdo, $email, $password, 'sendVerification');
+    } catch (RegistrationException $e) {
+        Response::error($e->getMessage(), $e->status());
+    }
 
-    Response::json(['ok' => true, 'message' => 'Cuenta creada. Revisa tu email para verificarla.']);
+    Response::json(['ok' => true, 'message' => $result['message']]);
 }
 
 function login(): never

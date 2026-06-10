@@ -43,6 +43,11 @@ jobs:
       - name: Install production dependencies
         run: composer install --no-dev --prefer-dist --no-progress --no-interaction --optimize-autoloader
 
+      - name: Prepare deploy package
+        run: |
+          mkdir deploy-build
+          cp -R app database public storage vendor .htaccess composer.json composer.lock deploy-build/
+
       - name: Deploy over SFTP
         uses: wlixcc/SFTP-Deploy-Action@v1.2.6
         with:
@@ -50,16 +55,9 @@ jobs:
           username: ${{ secrets.IONOS_SFTP_USER }}
           password: ${{ secrets.IONOS_SFTP_PASSWORD }}
           port: ${{ secrets.IONOS_SFTP_PORT }}
-          local_path: './'
+          local_path: './deploy-build/*'
           remote_path: '/'
           sftp_only: true
           delete_remote_files: false
           exclude: |
-            **/.git*
-            **/.github/**
             **/.env
-            **/.superpowers/**
-            **/.composer-cache/**
-            **/.phpunit*
-            **/tests/**
-            **/node_modules/**

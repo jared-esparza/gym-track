@@ -145,6 +145,11 @@ jobs:
       - name: Install production dependencies
         run: composer install --no-dev --prefer-dist --no-progress --no-interaction --optimize-autoloader
 
+      - name: Prepare deploy package
+        run: |
+          mkdir deploy-build
+          cp -R app database public storage vendor .htaccess composer.json composer.lock deploy-build/
+
       - name: Deploy over SFTP
         uses: wlixcc/SFTP-Deploy-Action@v1.2.6
         with:
@@ -152,22 +157,15 @@ jobs:
           username: ${{ secrets.IONOS_SFTP_USER }}
           password: ${{ secrets.IONOS_SFTP_PASSWORD }}
           port: ${{ secrets.IONOS_SFTP_PORT }}
-          local_path: './'
+          local_path: './deploy-build/*'
           remote_path: '/'
           sftp_only: true
           delete_remote_files: false
           exclude: |
-            **/.git*
-            **/.github/**
             **/.env
-            **/.superpowers/**
-            **/.composer-cache/**
-            **/.phpunit*
-            **/tests/**
-            **/node_modules/**
 ```
 
-Este workflow sube `vendor/` ya construido porque un hosting compartido puede no permitir ejecutar Composer en servidor.
+Este workflow crea `deploy-build/` y sube solo los archivos necesarios para produccion. Asi se evita subir `.git/`, `.github/`, tests, caches y otros archivos del checkout. Tambien sube `vendor/` ya construido porque un hosting compartido puede no permitir ejecutar Composer en servidor.
 
 `delete_remote_files: false` evita borrar accidentalmente `.env`, `storage/` u otros archivos gestionados en hosting. Si algun dia se cambia a borrado remoto, hay que excluir explicitamente `.env` y `storage/`.
 

@@ -50,6 +50,14 @@ Composer ya está configurado en `composer.json`. En local, `APP_ENV=local` hace
   - Crea todas las tablas e inserta los grupos musculares fijos.
 - `docs/PROJECT_STRUCTURE.md`
   - Guía humana para orientarse por carpetas y archivos.
+- `docs/IONOS_DEPLOYMENT.md`
+  - Guía de despliegue en IONOS con GitHub Actions y SFTP.
+- `tests/`
+  - Tests PHPUnit para seguridad e import/export.
+- `scripts/lint.php`
+  - Lint PHP portable usado por `composer lint`.
+- `phpunit.xml`
+  - Configuración de PHPUnit.
 - `.env.example`
   - Plantilla de configuración.
 - `.htaccess`
@@ -148,6 +156,7 @@ Pantallas principales:
   - Tras guardar una marca, se mantiene el entrenamiento activo pero se limpian grupo, ejercicio y panel para registrar otro ejercicio.
 - Histórico:
   - Elegir grupo y ejercicio, o dejar el grupo en "Todos los grupos" para escoger cualquier ejercicio.
+  - En la carga inicial, `loadBootstrap()` llama a `loadExercises('history')` para que el selector muestre todos los ejercicios sin esperar un cambio manual de grupo.
   - Ver gráfico de mejor marca diaria.
   - Ver registros como tarjetas en móvil y tabla en pantallas amplias.
   - Editar registros con formulario embebido.
@@ -200,7 +209,7 @@ Comandos ejecutados correctamente durante el desarrollo:
 
 ```powershell
 composer validate --strict
-Get-ChildItem -Recurse -Filter *.php | Where-Object { $_.FullName -notlike '*\vendor\*' } | ForEach-Object { php -l $_.FullName }
+composer lint
 node --check public\assets\app.js
 node .superpowers\implementation-tests\management-plan.test.cjs
 composer test
@@ -220,6 +229,7 @@ También se comprobó que el servidor PHP responde con HTTP 200 para:
 - Chart.js se carga desde CDN, por lo que requiere conexión a internet para ver gráficos.
 - El `.htaccess` raíz ayuda en hosting compartido, pero el despliegue ideal es apuntar document root a `public/`.
 - Para produccion: `APP_ENV=production`, HTTPS real, `APP_URL` HTTPS, SMTP configurado, `composer install --no-dev`, document root a `public/` y permisos de escritura solo en `storage/`.
+- Para desplegar en IONOS, seguir `docs/IONOS_DEPLOYMENT.md`; asume Hosting Linux, SFTP puerto 22, raíz remota como carpeta del proyecto y CI/CD desde GitHub Actions.
 
 ## Nota sobre Browser de Codex
 

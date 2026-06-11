@@ -25,5 +25,6 @@ assert.match(js, /function isDesktopLayout\(\)/, 'JS needs a desktop layout help
 assert.match(js, /getDefaultTab\(\)/, 'app must pick a desktop-specific default tab');
 assert.match(js, /switchTab\(getDefaultTab\(\)\)/, 'bootstrap must switch to desktop default tab');
 assert.match(js, /openManageSection\(getDefaultManageSection\(\)\)/, 'management must default to exercises on desktop');
+assert.match(js, /showDesktopHistoryEmptyState\(\)/, 'desktop history must show the empty chart panel before an exercise is selected');
 assert.match(js, /desktopEditorSlotId/, 'management forms must support desktop editor slots');
 assert.match(js, /document\.querySelectorAll\('\.app-nav button'\)/, 'all app nav instances must stay in sync');

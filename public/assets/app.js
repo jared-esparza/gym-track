@@ -446,7 +446,7 @@ async function loadExercises(context) {
   const exerciseSelect = context === 'train' ? $('trainExerciseSelect') : $('historyExerciseSelect');
   if (context === 'train') $('exercisePanel').classList.add('hidden');
   if (context === 'history') {
-    $('historyPanel').classList.add('hidden');
+    showDesktopHistoryEmptyState();
     hideRecordEditForm();
   }
   if (state.gymsEnabled) {
@@ -996,24 +996,28 @@ async function loadHistory() {
   const exerciseId = $('historyExerciseSelect').value;
   hideRecordEditForm();
   if (state.gymsEnabled && !$('historyGymSelect').value) {
-    $('historyPanel').classList.add('hidden');
-    if (state.chart) {
-      state.chart.destroy();
-      state.chart = null;
-    }
+    showDesktopHistoryEmptyState();
     return;
   }
   if (!exerciseId) {
-    $('historyPanel').classList.add('hidden');
-    if (state.chart) {
-      state.chart.destroy();
-      state.chart = null;
-    }
+    showDesktopHistoryEmptyState();
     return;
   }
   const gymParam = state.gymsEnabled ? `&gym_id=${encodeURIComponent($('historyGymSelect').value)}` : '';
   const data = await api(`history&exercise_id=${encodeURIComponent(exerciseId)}${gymParam}`);
   renderHistory(data);
+}
+
+function showDesktopHistoryEmptyState() {
+  if (state.chart) {
+    state.chart.destroy();
+    state.chart = null;
+  }
+  $('historyPanel').classList.toggle('hidden', !isDesktopLayout());
+  $('historyEmptyState').classList.toggle('hidden', !isDesktopLayout());
+  $('historyChart').classList.add('hidden');
+  $('historyRows').innerHTML = '';
+  $('historyCards').innerHTML = '';
 }
 
 function renderHistory(data) {

@@ -185,6 +185,12 @@ h3 {
   padding: 74px 12px 132px;
 }
 
+.desktop-sidebar,
+.desktop-manage-nav,
+.desktop-editor-slot {
+  display: none;
+}
+
 .topbar {
   position: fixed;
   inset: 0 0 auto;
@@ -684,5 +690,237 @@ details form {
     border: 1px solid var(--line);
     border-radius: 8px;
     padding: 8px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .app-shell {
+    min-height: 100vh;
+    padding: 24px 32px 32px 268px;
+  }
+
+  .desktop-sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 6;
+    width: 236px;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    gap: 24px;
+    padding: 24px 16px;
+    background: #fff;
+    border-right: 1px solid var(--line);
+    box-shadow: 8px 0 24px rgba(20, 32, 27, 0.04);
+  }
+
+  .desktop-brand {
+    display: grid;
+    gap: 4px;
+    padding: 4px 6px 18px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .desktop-brand strong {
+    font-size: 1.15rem;
+    line-height: 1.1;
+  }
+
+  .desktop-brand span,
+  .desktop-account span {
+    color: var(--muted);
+    font-size: 0.8rem;
+    overflow-wrap: anywhere;
+  }
+
+  .desktop-nav {
+    display: grid;
+    align-content: start;
+    gap: 8px;
+  }
+
+  .desktop-nav button,
+  .manage-nav-button {
+    justify-content: flex-start;
+    width: 100%;
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid transparent;
+    text-align: left;
+  }
+
+  .desktop-nav button.active,
+  .manage-nav-button.active {
+    color: var(--accent-dark);
+    background: var(--accent-soft);
+    border-color: #cce5d9;
+  }
+
+  .desktop-account {
+    display: grid;
+    gap: 10px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+  }
+
+  .desktop-account .ghost {
+    width: 100%;
+  }
+
+  .topbar {
+    display: none;
+  }
+
+  .bottom-nav {
+    display: none;
+  }
+
+  .notice {
+    width: 100%;
+    max-width: none;
+  }
+
+  .screen {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+  }
+
+  #trainTab {
+    max-width: 860px;
+  }
+
+  .panel {
+    padding: 18px;
+  }
+
+  .history-desktop-layout {
+    display: grid;
+    grid-template-columns: 280px minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+  }
+
+  .history-filters {
+    position: sticky;
+    top: 24px;
+  }
+
+  .history-results {
+    min-width: 0;
+  }
+
+  .chart-frame {
+    min-height: 260px;
+  }
+
+  .chart-frame canvas {
+    max-height: 260px;
+  }
+
+  .desktop-history table {
+    min-width: 0;
+  }
+
+  .manage-desktop-grid {
+    display: grid;
+    grid-template-columns: 188px minmax(0, 1fr) minmax(300px, 360px);
+    gap: 16px;
+    align-items: start;
+  }
+
+  .desktop-manage-nav,
+  .desktop-editor-slot {
+    position: sticky;
+    top: 24px;
+    display: grid;
+    gap: 8px;
+    align-content: start;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+    padding: 12px;
+  }
+
+  .manage-desktop-content {
+    min-width: 0;
+  }
+
+  .manage-section {
+    margin-bottom: 0;
+  }
+
+  .manage-section[data-open="false"] {
+    display: none;
+  }
+
+  .manage-section[data-open="false"] .manage-section-body {
+    display: grid;
+  }
+
+  .manage-toggle::after {
+    display: none;
+  }
+
+  .manage-section-body {
+    gap: 10px;
+  }
+
+  .item-list,
+  .record-card-list {
+    gap: 6px;
+  }
+
+  .item {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .item.is-editing {
+    box-shadow: inset 3px 0 0 var(--accent);
+  }
+
+  .action-row {
+    justify-content: flex-end;
+  }
+
+  .compact-actions button {
+    min-height: 34px;
+  }
+
+  .desktop-editor-slot {
+    min-height: 220px;
+  }
+
+  .desktop-editor-pane,
+  .desktop-editor-empty {
+    display: none;
+  }
+
+  .desktop-editor-slot[data-active-section="exercises"] #desktopExerciseEditorSlot,
+  .desktop-editor-slot[data-active-section="workouts"] #desktopWorkoutEditorSlot,
+  .desktop-editor-slot[data-active-section="gyms"] #desktopGymEditorSlot,
+  .desktop-editor-slot[data-active-section="data"] .desktop-editor-empty {
+    display: block;
+  }
+
+  .desktop-editor-slot .inline-form {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+  }
+
+  .desktop-editor-slot .inline-editor {
+    border: 0;
+    background: transparent;
+    padding: 0;
+  }
+
+  .desktop-editor-slot fieldset {
+    grid-template-columns: 1fr;
+  }
+
+  .data-actions {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }

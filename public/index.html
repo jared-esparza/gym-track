@@ -59,6 +59,22 @@
     </main>
 
     <main id="appView" class="app-shell hidden">
+      <aside class="desktop-sidebar" aria-label="Navegacion principal de escritorio">
+        <div class="desktop-brand">
+          <strong>Gym Tracker</strong>
+          <span>Panel de entrenamiento</span>
+        </div>
+        <nav class="desktop-nav app-nav" aria-label="Secciones principales">
+          <button data-tab="trainTab" type="button">Entrenar</button>
+          <button data-tab="historyTab" type="button">Historico</button>
+          <button data-tab="manageTab" type="button">Gestion</button>
+        </nav>
+        <div class="desktop-account">
+          <span id="desktopUserEmail"></span>
+          <button id="desktopLogoutBtn" class="ghost" type="button">Salir</button>
+        </div>
+      </aside>
+
       <header class="topbar">
         <div>
           <strong>Gym Tracker</strong>
@@ -139,7 +155,8 @@
       </section>
 
       <section id="historyTab" class="screen">
-        <form class="panel stack flow-panel">
+        <div class="history-desktop-layout">
+        <form class="panel stack flow-panel history-filters">
           <div class="screen-head">
             <div>
               <p class="eyebrow">Progreso</p>
@@ -150,7 +167,7 @@
           <label>Grupo muscular<select id="historyGroupSelect"></select></label>
           <label>Ejercicio<select id="historyExerciseSelect"></select></label>
         </form>
-        <section id="historyPanel" class="panel hidden">
+        <section id="historyPanel" class="panel history-results hidden">
           <div class="chart-frame">
             <canvas id="historyChart" height="180"></canvas>
             <p id="historyEmptyState" class="empty-state hidden">Selecciona un ejercicio con registros para ver su evolución.</p>
@@ -174,9 +191,19 @@
             </table>
           </div>
         </section>
+        </div>
       </section>
 
       <section id="manageTab" class="screen">
+        <div class="manage-desktop-grid">
+          <aside class="desktop-manage-nav" aria-label="Secciones de gestion">
+            <p class="eyebrow">Gestion</p>
+            <button class="manage-nav-button" type="button" data-manage-toggle="exercises">Ejercicios</button>
+            <button class="manage-nav-button" type="button" data-manage-toggle="workouts">Entrenamientos</button>
+            <button class="manage-nav-button" type="button" data-manage-toggle="gyms">Gimnasios</button>
+            <button class="manage-nav-button" type="button" data-manage-toggle="data">Datos</button>
+          </aside>
+          <div class="manage-desktop-content">
         <section id="gymSection" class="panel manage-section" data-manage-section="gyms" data-open="false">
           <div class="screen-head section-heading">
             <div>
@@ -256,6 +283,18 @@
             </section>
           </div>
         </section>
+          </div>
+
+          <aside class="desktop-editor-slot" aria-label="Editor de gestion">
+            <div id="desktopExerciseEditorSlot" class="desktop-editor-pane" data-editor-section="exercises"></div>
+            <div id="desktopWorkoutEditorSlot" class="desktop-editor-pane" data-editor-section="workouts"></div>
+            <div id="desktopGymEditorSlot" class="desktop-editor-pane" data-editor-section="gyms"></div>
+            <div class="desktop-editor-empty" data-editor-section="data">
+              <span class="label">Datos</span>
+              <p class="muted">Las acciones de importacion y exportacion se gestionan en el panel principal.</p>
+            </div>
+          </aside>
+        </div>
 
         <div id="exerciseFormHome" class="hidden">
           <form id="exerciseManagementForm" class="stack inline-form inline-editor hidden">
@@ -306,7 +345,7 @@
         </div>
       </section>
 
-      <nav class="bottom-nav" aria-label="Navegación principal">
+      <nav class="bottom-nav app-nav" aria-label="Navegación principal">
         <button data-tab="trainTab" class="active">Entrenar</button>
         <button data-tab="historyTab">Histórico</button>
         <button data-tab="manageTab">Gestión</button>

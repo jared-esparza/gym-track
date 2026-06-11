@@ -15,7 +15,20 @@ const state = {
   manageOpenSection: null,
 };
 
+const DESKTOP_QUERY = '(min-width: 1024px)';
 const $ = (id) => document.getElementById(id);
+
+function isDesktopLayout() {
+  return window.matchMedia(DESKTOP_QUERY).matches;
+}
+
+function getDefaultTab() {
+  return isDesktopLayout() ? 'manageTab' : 'trainTab';
+}
+
+function getDefaultManageSection() {
+  return isDesktopLayout() ? 'exercises' : null;
+}
 
 async function api(action, options = {}) {
   const method = (options.method || 'GET').toUpperCase();
@@ -132,7 +145,9 @@ async function showApp() {
   $('authView').classList.add('hidden');
   $('appView').classList.remove('hidden');
   $('userEmail').textContent = state.user.email;
+  $('desktopUserEmail').textContent = state.user.email;
   await loadBootstrap();
+  switchTab(getDefaultTab());
 }
 
 function bindAuth() {
@@ -224,8 +239,12 @@ function bindApp() {
     await send('logout');
     location.reload();
   });
+  $('desktopLogoutBtn').addEventListener('click', async () => {
+    await send('logout');
+    location.reload();
+  });
 
-  document.querySelectorAll('.bottom-nav button').forEach((button) => {
+  document.querySelectorAll('.app-nav button').forEach((button) => {
     button.addEventListener('click', () => switchTab(button.dataset.tab));
   });
   bindManageAccordion();
@@ -274,8 +293,8 @@ function bindApp() {
 
 function switchTab(tabId) {
   document.querySelectorAll('.screen').forEach((screen) => screen.classList.toggle('active', screen.id === tabId));
-  document.querySelectorAll('.bottom-nav button').forEach((button) => button.classList.toggle('active', button.dataset.tab === tabId));
-  if (tabId === 'manageTab') openManageSection(null);
+  document.querySelectorAll('.app-nav button').forEach((button) => button.classList.toggle('active', button.dataset.tab === tabId));
+  if (tabId === 'manageTab') openManageSection(getDefaultManageSection());
 }
 
 function bindManageAccordion() {
@@ -286,10 +305,15 @@ function bindManageAccordion() {
 }
 
 function toggleManageSection(sectionId) {
+  if (isDesktopLayout()) {
+    openManageSection(sectionId);
+    return;
+  }
   openManageSection(state.manageOpenSection === sectionId ? null : sectionId);
 }
 
 function openManageSection(sectionId = null) {
+  if (!sectionId && isDesktopLayout()) sectionId = 'exercises';
   state.manageOpenSection = sectionId;
   document.querySelectorAll('[data-manage-section]').forEach((section) => {
     const isOpen = Boolean(sectionId) && section.dataset.manageSection === sectionId;
@@ -297,6 +321,11 @@ function openManageSection(sectionId = null) {
     const toggle = section.querySelector('[data-manage-toggle]');
     if (toggle) toggle.setAttribute('aria-expanded', String(isOpen));
   });
+  document.querySelectorAll('.manage-nav-button').forEach((button) => {
+    button.classList.toggle('active', button.dataset.manageToggle === sectionId);
+  });
+  const editorSlot = document.querySelector('.desktop-editor-slot');
+  if (editorSlot) editorSlot.dataset.activeSection = sectionId || '';
 }
 
 async function loadBootstrap() {
@@ -566,6 +595,7 @@ async function editWorkout(id) {
     formId: 'workoutForm',
     homeId: 'workoutFormHome',
     createSlotId: 'newWorkoutFormSlot',
+    desktopEditorSlotId: 'desktopWorkoutEditorSlot',
     listId: 'workoutList',
     sectionId: 'workouts',
     entityId: id,
@@ -598,6 +628,7 @@ function resetWorkoutForm() {
     formId: 'workoutForm',
     homeId: 'workoutFormHome',
     createSlotId: 'newWorkoutFormSlot',
+    desktopEditorSlotId: 'desktopWorkoutEditorSlot',
     listId: 'workoutList',
     sectionId: 'workouts',
   });
@@ -636,6 +667,7 @@ function resetGymForm() {
     formId: 'gymForm',
     homeId: 'gymFormHome',
     createSlotId: 'newGymFormSlot',
+    desktopEditorSlotId: 'desktopGymEditorSlot',
     listId: 'gymList',
     sectionId: 'gyms',
   });
@@ -661,6 +693,7 @@ function editGym(id) {
     formId: 'gymForm',
     homeId: 'gymFormHome',
     createSlotId: 'newGymFormSlot',
+    desktopEditorSlotId: 'desktopGymEditorSlot',
     listId: 'gymList',
     sectionId: 'gyms',
     entityId: id,
@@ -734,18 +767,24 @@ function renderManageExercises() {
   });
 }
 
-function placeManagementForm({ formId, homeId, createSlotId, listId, sectionId, entityId = null }) {
+function placeManagementForm({ formId, homeId, createSlotId, desktopEditorSlotId, listId, sectionId, entityId = null }) {
   openManageSection(sectionId);
   clearManagementEditing(listId);
   const form = $(formId);
+  const desktopSlot = desktopEditorSlotId ? $(desktopEditorSlotId) : null;
+  const targetSlot = isDesktopLayout() && desktopSlot ? desktopSlot : $(createSlotId);
   if (entityId === null) {
-    $(createSlotId).appendChild(form);
+    targetSlot.appendChild(form);
     return true;
   }
   const item = [...$(listId).querySelectorAll('.item[data-entity-id]')].find((node) => node.dataset.entityId === String(entityId));
   if (!item) return false;
   item.classList.add('is-editing');
-  item.appendChild(form);
+  if (isDesktopLayout() && desktopSlot) {
+    desktopSlot.appendChild(form);
+  } else {
+    item.appendChild(form);
+  }
   return true;
 }
 
@@ -765,6 +804,7 @@ function resetManageExerciseForm() {
     formId: 'exerciseManagementForm',
     homeId: 'exerciseFormHome',
     createSlotId: 'newExerciseFormSlot',
+    desktopEditorSlotId: 'desktopExerciseEditorSlot',
     listId: 'manageExerciseList',
     sectionId: 'exercises',
   });
@@ -789,6 +829,7 @@ function editExercise(id) {
     formId: 'exerciseManagementForm',
     homeId: 'exerciseFormHome',
     createSlotId: 'newExerciseFormSlot',
+    desktopEditorSlotId: 'desktopExerciseEditorSlot',
     listId: 'manageExerciseList',
     sectionId: 'exercises',
     entityId: id,

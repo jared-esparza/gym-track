@@ -61,31 +61,38 @@
     </main>
 
     <main id="appView" class="app-shell hidden">
-      <aside class="desktop-sidebar" aria-label="Navegacion principal de escritorio">
+      <aside class="desktop-sidebar" aria-label="Navegación principal de escritorio">
         <div class="desktop-brand">
-          <strong>Gym Tracker</strong>
-          <span>Panel de entrenamiento</span>
+          <span class="brand-mark" aria-hidden="true">CH</span>
+          <div>
+            <strong>Cuaderno de hierro</strong>
+            <span>Entrenamiento sin ruido</span>
+          </div>
         </div>
         <nav class="desktop-nav app-nav" aria-label="Secciones principales">
-          <button data-tab="trainTab" type="button">Entrenar</button>
-          <button data-tab="historyTab" type="button">Historico</button>
-          <button data-tab="manageTab" type="button">Gestion</button>
+          <button data-tab="trainTab" type="button" class="active" aria-current="page"><svg aria-hidden="true"><use href="assets/icons/sprite.svg#icon-train"></use></svg><span>Entrenar</span></button>
+          <button data-tab="historyTab" type="button"><svg aria-hidden="true"><use href="assets/icons/sprite.svg#icon-history"></use></svg><span>Histórico</span></button>
+          <button data-tab="manageTab" type="button"><svg aria-hidden="true"><use href="assets/icons/sprite.svg#icon-manage"></use></svg><span>Gestión</span></button>
         </nav>
         <div class="desktop-account">
+          <span class="account-label">Sesión activa</span>
           <span id="desktopUserEmail"></span>
-          <button id="desktopLogoutBtn" class="ghost" type="button">Salir</button>
+          <button id="desktopLogoutBtn" class="ghost nav-action" type="button"><svg aria-hidden="true"><use href="assets/icons/sprite.svg#icon-logout"></use></svg><span>Salir</span></button>
         </div>
       </aside>
 
       <header class="topbar">
-        <div>
-          <strong>Gym Tracker</strong>
+        <div class="mobile-brand">
+          <span class="brand-mark" aria-hidden="true">CH</span>
+          <div>
+          <strong>Cuaderno de hierro</strong>
           <span id="userEmail"></span>
+          </div>
         </div>
-        <button id="logoutBtn" class="ghost">Salir</button>
+        <button id="logoutBtn" class="ghost icon-button" aria-label="Cerrar sesión"><svg aria-hidden="true"><use href="assets/icons/sprite.svg#icon-logout"></use></svg></button>
       </header>
 
-      <section id="globalMessage" class="notice hidden"></section>
+      <section id="globalMessage" class="notice global-feedback hidden" aria-live="polite" aria-atomic="true"></section>
 
       <section id="trainTab" class="screen active">
         <div id="onboarding" class="panel hidden">
@@ -348,10 +355,22 @@
       </section>
 
       <nav class="bottom-nav app-nav" aria-label="Navegación principal">
-        <button data-tab="trainTab" class="active">Entrenar</button>
-        <button data-tab="historyTab">Histórico</button>
-        <button data-tab="manageTab">Gestión</button>
+        <button data-tab="trainTab" class="active" aria-current="page"><svg aria-hidden="true"><use href="assets/icons/sprite.svg#icon-train"></use></svg><span>Entrenar</span></button>
+        <button data-tab="historyTab"><svg aria-hidden="true"><use href="assets/icons/sprite.svg#icon-history"></use></svg><span>Histórico</span></button>
+        <button data-tab="manageTab"><svg aria-hidden="true"><use href="assets/icons/sprite.svg#icon-manage"></use></svg><span>Gestión</span></button>
       </nav>
+
+      <dialog id="confirmDialog" class="confirm-dialog" aria-labelledby="confirmDialogTitle" aria-describedby="confirmDialogMessage">
+        <div class="confirm-dialog__body">
+          <p class="eyebrow">Confirmar acción</p>
+          <h2 id="confirmDialogTitle">¿Continuar?</h2>
+          <p id="confirmDialogMessage" class="muted"></p>
+          <div class="row confirm-dialog__actions">
+            <button id="confirmDialogCancel" class="ghost" type="button">Cancelar</button>
+            <button id="confirmDialogConfirm" class="danger-solid" type="button">Confirmar</button>
+          </div>
+        </div>
+      </dialog>
     </main>
   </body>
 </html>

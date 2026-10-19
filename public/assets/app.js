@@ -38,6 +38,8 @@ const MANAGEMENT_FORM_LAYOUTS = [
   },
 ];
 const $ = (id) => document.getElementById(id);
+let activeConfirmResolver = null;
+let confirmReturnFocus = null;
 
 function isDesktopLayout() {
   return desktopMediaQuery.matches;
@@ -74,7 +76,21 @@ async function send(action, payload = {}, method = 'POST') {
   return api(action, { method, body: JSON.stringify(payload) });
 }
 
+function announce(message, tone = 'info') {
+  const target = $('globalMessage');
+  target.textContent = message;
+  target.setAttribute('aria-live', 'polite');
+  target.setAttribute('role', tone === 'error' ? 'alert' : 'status');
+  target.setAttribute('data-tone', tone);
+  target.classList.toggle('error', tone === 'error');
+  target.classList.remove('hidden');
+}
+
 function showMessage(text, type = 'ok', target = $('globalMessage')) {
+  if (target === $('globalMessage')) {
+    announce(text, type === 'error' ? 'error' : 'success');
+    return;
+  }
   target.textContent = text;
   target.classList.toggle('error', type === 'error');
   target.classList.remove('hidden');
@@ -82,6 +98,50 @@ function showMessage(text, type = 'ok', target = $('globalMessage')) {
 
 function clearMessage(target = $('globalMessage')) {
   target.classList.add('hidden');
+}
+
+function setActiveNavigation(tabId) {
+  document.querySelectorAll('.app-nav button').forEach((button) => {
+    const isActive = button.dataset.tab === tabId;
+    button.classList.toggle('active', isActive);
+    if (isActive) button.setAttribute('aria-current', 'page');
+    else button.removeAttribute('aria-current');
+  });
+}
+
+function closeConfirmDialog(result) {
+  if (!activeConfirmResolver) return;
+  const resolve = activeConfirmResolver;
+  const returnFocus = confirmReturnFocus;
+  activeConfirmResolver = null;
+  confirmReturnFocus = null;
+  $('confirmDialog').close();
+  resolve(Boolean(result));
+  if (returnFocus?.focus) returnFocus.focus();
+}
+
+function openConfirmDialog({ title, message, confirmLabel }) {
+  if (activeConfirmResolver) closeConfirmDialog(false);
+  const dialog = $('confirmDialog');
+  confirmReturnFocus = document.activeElement;
+  $('confirmDialogTitle').textContent = title;
+  $('confirmDialogMessage').textContent = message;
+  $('confirmDialogConfirm').textContent = confirmLabel;
+
+  if (!dialog.dataset.confirmBound) {
+    dialog.addEventListener('cancel', (event) => {
+      event.preventDefault();
+      closeConfirmDialog(false);
+    });
+    dialog.dataset.confirmBound = 'true';
+  }
+  $('confirmDialogCancel').onclick = () => closeConfirmDialog(false);
+  $('confirmDialogConfirm').onclick = () => closeConfirmDialog(true);
+  dialog.showModal();
+  $('confirmDialogConfirm').focus();
+  return new Promise((resolve) => {
+    activeConfirmResolver = resolve;
+  });
 }
 
 function formatValue(value, metric) {
@@ -315,7 +375,7 @@ function bindApp() {
 
 function switchTab(tabId) {
   document.querySelectorAll('.screen').forEach((screen) => screen.classList.toggle('active', screen.id === tabId));
-  document.querySelectorAll('.app-nav button').forEach((button) => button.classList.toggle('active', button.dataset.tab === tabId));
+  setActiveNavigation(tabId);
   if (tabId === 'manageTab') openManageSection(getDefaultManageSection());
 }
 

@@ -236,7 +236,7 @@ h3 {
 
 .app-shell {
   min-height: 100vh;
-  padding: 74px 12px 132px;
+  padding: 78px 12px 112px;
 }
 
 .desktop-sidebar,
@@ -249,20 +249,25 @@ h3 {
   position: fixed;
   inset: 0 0 auto;
   z-index: 5;
-  min-height: 58px;
+  min-height: 64px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   padding: 8px 12px;
-  background: rgba(244, 246, 242, 0.95);
+  background: rgba(255, 255, 255, 0.96);
   border-bottom: 1px solid var(--line);
   backdrop-filter: blur(10px);
 }
 
 .topbar strong {
   display: block;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: 0.025em;
   line-height: 1.1;
+  text-transform: uppercase;
 }
 
 .topbar span {
@@ -272,7 +277,49 @@ h3 {
 }
 
 .topbar .ghost {
-  min-height: 42px;
+  min-height: 44px;
+}
+
+.mobile-brand,
+.desktop-brand,
+.nav-action,
+.app-nav button {
+  display: flex;
+  align-items: center;
+}
+
+.mobile-brand {
+  min-width: 0;
+  gap: 10px;
+}
+
+.brand-mark {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  background: var(--color-graphite);
+  color: var(--color-paper);
+  font-family: var(--font-display);
+  font-size: 1rem;
+  line-height: 1;
+  letter-spacing: 0.04em;
+}
+
+.app-nav svg,
+.nav-action svg,
+.icon-button svg {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+}
+
+.icon-button {
+  width: 44px;
+  padding: 0;
+  display: grid;
+  place-items: center;
 }
 
 .screen {
@@ -387,17 +434,25 @@ h3 {
 .notice {
   max-width: 760px;
   margin: 0 auto 12px;
-  border-radius: 8px;
-  border: 1px solid #cde3d8;
-  background: #edf8f2;
-  color: #104f3b;
-  padding: 12px;
+  border-radius: var(--radius-control);
+  border: 1px solid #A9D0C1;
+  border-left: 4px solid var(--color-success);
+  background: #EDF8F3;
+  color: #10543D;
+  padding: 12px 14px;
 }
 
 .notice.error {
   border-color: #f0c8c4;
   background: var(--danger-soft);
   color: var(--danger);
+}
+
+.notice[data-tone="info"] {
+  border-color: #BCC9F3;
+  border-left-color: var(--color-plate-blue);
+  background: #EFF3FF;
+  color: var(--color-plate-blue-dark);
 }
 
 .session-panel {
@@ -648,25 +703,68 @@ th {
   z-index: 5;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  padding: 8px 10px calc(10px + env(safe-area-inset-bottom));
+  gap: 2px;
+  padding: 6px 8px calc(7px + env(safe-area-inset-bottom));
   background: rgba(255, 255, 255, 0.97);
   border-top: 1px solid var(--line);
-  box-shadow: 0 -8px 24px rgba(20, 32, 27, 0.07);
+  box-shadow: 0 -8px 24px rgba(17, 24, 39, 0.07);
 }
 
 .bottom-nav button {
-  min-height: 48px;
+  min-height: 58px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 3px;
   background: transparent;
   color: var(--muted);
-  border: 1px solid transparent;
+  border: 0;
+  border-top: 3px solid transparent;
+  border-radius: 0;
   padding: 0 8px;
+  font-size: 0.72rem;
 }
 
 .bottom-nav button.active {
-  color: var(--accent-dark);
-  background: var(--accent-soft);
-  border-color: #cce5d9;
+  color: var(--color-plate-blue-dark);
+  background: transparent;
+  border-top-color: var(--color-tape-orange);
+}
+
+.confirm-dialog {
+  width: min(calc(100% - 32px), 440px);
+  border: 0;
+  border-radius: var(--radius-panel);
+  padding: 0;
+  color: var(--ink);
+  box-shadow: 0 24px 70px rgba(17, 24, 39, 0.28);
+}
+
+.confirm-dialog::backdrop {
+  background: rgba(17, 24, 39, 0.62);
+  backdrop-filter: blur(2px);
+}
+
+.confirm-dialog__body {
+  padding: 24px;
+  border-top: 5px solid var(--color-tape-orange);
+}
+
+.confirm-dialog__body h2 {
+  margin-bottom: 10px;
+}
+
+.confirm-dialog__actions {
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+
+.confirm-dialog__actions > * {
+  flex: 0 1 auto;
+}
+
+.danger-solid {
+  background: var(--color-danger);
 }
 
 summary {
@@ -757,31 +855,36 @@ details form {
     position: fixed;
     inset: 0 auto 0 0;
     z-index: 6;
-    width: 236px;
+    width: 252px;
     display: grid;
     grid-template-rows: auto 1fr auto;
     gap: 24px;
     padding: 24px 16px;
-    background: #fff;
+    background: var(--color-graphite);
+    color: var(--color-paper);
     border-right: 1px solid var(--line);
-    box-shadow: 8px 0 24px rgba(20, 32, 27, 0.04);
+    box-shadow: none;
   }
 
   .desktop-brand {
-    display: grid;
-    gap: 4px;
+    gap: 12px;
     padding: 4px 6px 18px;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.14);
   }
 
   .desktop-brand strong {
-    font-size: 1.15rem;
+    display: block;
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-weight: 600;
+    letter-spacing: 0.025em;
     line-height: 1.1;
+    text-transform: uppercase;
   }
 
   .desktop-brand span,
   .desktop-account span {
-    color: var(--muted);
+    color: #AAB3C2;
     font-size: 0.8rem;
     overflow-wrap: anywhere;
   }
@@ -797,27 +900,45 @@ details form {
     justify-content: flex-start;
     width: 100%;
     background: transparent;
-    color: var(--muted);
+    color: #CDD3DD;
     border: 1px solid transparent;
     text-align: left;
   }
 
   .desktop-nav button.active,
   .manage-nav-button.active {
-    color: var(--accent-dark);
-    background: var(--accent-soft);
-    border-color: #cce5d9;
+    color: var(--color-paper);
+    background: rgba(36, 83, 230, 0.28);
+    border-color: rgba(116, 145, 239, 0.6);
+    box-shadow: inset 3px 0 0 var(--color-tape-orange);
+  }
+
+  .desktop-nav button {
+    gap: 12px;
+    min-height: 48px;
   }
 
   .desktop-account {
     display: grid;
     gap: 10px;
     padding-top: 16px;
-    border-top: 1px solid var(--line);
+    border-top: 1px solid rgba(255, 255, 255, 0.14);
+  }
+
+  .desktop-account .account-label {
+    color: #7E8999;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
   }
 
   .desktop-account .ghost {
     width: 100%;
+    justify-content: flex-start;
+    gap: 10px;
+    color: #CDD3DD;
+    border-color: rgba(255, 255, 255, 0.2);
   }
 
   .topbar {

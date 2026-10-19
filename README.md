@@ -1,6 +1,6 @@
 # Gym Tracker
 
-Gym Tracker is a mobile-first web app for recording gym performance during training sessions. It is built as a lightweight PHP/MySQL application with plain HTML, CSS and JavaScript, designed to run on classic shared hosting without a frontend build process.
+Cuaderno de hierro (Gym Tracker) is a mobile-first web app for recording gym performance during training sessions. It is built as a lightweight PHP/MySQL application with plain HTML, CSS and JavaScript, designed to run on classic shared hosting without a frontend build process.
 
 The project focuses on a practical workout flow: choose a routine, pick a muscle group and exercise, save a mark, and review progress through history tables and daily-best charts.
 
@@ -14,8 +14,10 @@ The project focuses on a practical workout flow: choose a routine, pick a muscle
 - User-created exercises with metric types: `kg`, `reps`, `min` and `km`.
 - Training flow for saving marks by active workout and exercise.
 - Personal records summary with best historical mark and latest entry.
-- History view with Chart.js daily-best graph and editable records.
-- Management view for workouts and exercises.
+- History view with progress summary, Chart.js daily-best graph, helpful empty state and editable records.
+- Management view for workouts, exercises and optional gyms, with contextual editors and accessible delete confirmations.
+- Distinctive Cuaderno de hierro identity with locally hosted fonts and responsive navigation.
+- Progressive onboarding for the first workout, exercise and mark.
 - JSON backup export/import for restorable user data.
 - CSV export for spreadsheets and CSV exercise import.
 - Local email logging for development with `APP_ENV=local`.
@@ -23,11 +25,11 @@ The project focuses on a practical workout flow: choose a routine, pick a muscle
 ## Screens and Workflow
 
 - **Auth**: login, registration, email verification, forgotten password and reset password.
-- **Train**: select active workout, muscle group and exercise, then save a new mark.
-- **History**: filter by group/exercise, inspect the graph, edit or delete records.
-- **Management**: create, edit and delete workouts/exercises, export backups and import data.
+- **Train**: select active workout, muscle group and exercise, then save a new mark. The selected workout, group and exercise remain active after saving.
+- **History**: filter by group/exercise, review best/latest/change/count metrics and the daily-best graph, edit records or delete them after confirmation.
+- **Management**: create, edit and delete workouts, exercises and optional gyms; export backups and import data.
 
-After saving a mark, the selected workout remains active and the app clears the group/exercise selection so the next record can be entered for a different exercise.
+The app is responsive from mobile through desktop, provides visible keyboard focus and respects reduced-motion preferences.
 
 ## Tech Stack
 
@@ -134,11 +136,19 @@ Useful checks after changing the project:
 ```powershell
 composer validate --strict
 composer test
+composer lint
+node scripts\ui-design-requirements.test.cjs
+node scripts\ui-shell-behavior.test.cjs
+node scripts\training-ui-behavior.test.cjs
+node scripts\history-ui-behavior.test.cjs
+node scripts\management-ui-behavior.test.cjs
+node scripts\auth-onboarding-ui.test.cjs
+node scripts\desktop-ui-requirements.test.cjs
+node scripts\desktop-ui-behavior.test.cjs
 Get-ChildItem -Recurse -Filter *.php | Where-Object { $_.FullName -notlike '*\vendor\*' } | ForEach-Object { php -l $_.FullName }
 node --check public\assets\app.js
+git diff --check
 ```
-
-During recent development, an additional local test file was used under `.superpowers/implementation-tests/`. That folder is intentionally ignored and is not required for deployment.
 
 ## Deployment Notes
 
@@ -151,11 +161,10 @@ During recent development, an additional local test file was used under `.superp
 
 ## Current Status
 
-This is a functional V1. The main product flows, basic production hardening and a PHPUnit unit test suite are implemented, but there is still room for future hardening:
+This is a functional V1 with the Cuaderno de hierro interface implemented across its main screens. Future work should focus on validated product needs and broader authenticated end-to-end coverage:
 
 - Add incremental migrations for future schema changes.
-- Add broader end-to-end tests around authenticated browser flows.
-- Continue polishing the mobile UI.
+- Add broader end-to-end tests around authenticated browser flows and account states.
 
 ## Documentation
 

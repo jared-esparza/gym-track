@@ -89,11 +89,13 @@ Es la raíz web. En hosting ideal, el document root debe apuntar a esta carpeta.
   - Estado de frontend, llamadas API y listeners de interacción.
   - Gestiona cambios de pestaña, carga de selects, guardado de registros, edición y borrado.
   - Si algo “no responde” al pulsar un botón o hay que cambiar un flujo de pantalla, se revisa aquí.
-  - Incluye las interfaces compartidas `setActiveNavigation()`, `announce()`, `openConfirmDialog()` y el renderizado del cockpit de Entrenar.
+  - Incluye las interfaces compartidas `setActiveNavigation()`, `announce()` y `openConfirmDialog()`; renderiza Entrenar, Histórico y el onboarding progresivo.
+  - Mantiene `summarizeHistory()`, `historyChartOptions()`, `entityMeta()` y `setManagementEditorState()` junto a los flujos de acceso.
 
 - `assets/app.css`
   - Estilos mobile-first.
-  - Controla paneles, formularios, navegación inferior, tarjetas móviles, tablas, avisos y botones.
+  - Controla tokens de marca, paneles, formularios, navegación responsive, resúmenes, tarjetas, tablas, avisos y diálogos.
+  - Incluye foco visible, objetivos táctiles de 44 px y adaptación a `prefers-reduced-motion`.
   - Si un cambio es visual sin alterar datos, probablemente va aquí.
 
 - `assets/fonts/`
@@ -140,7 +142,7 @@ Documentación humana del proyecto.
   - Especificación de producto y dirección visual del rediseño.
 
 - `superpowers/plans/2026-10-19-cuaderno-de-hierro.md`
-  - Plan por tareas. El sistema visual, el shell compartido y el cockpit de Entrenar ya están implementados; Histórico, Gestión, auth y el pulido final siguen pendientes.
+  - Plan por tareas para el rediseño Cuaderno de hierro y su verificación final.
 
 ### `scripts/`
 
@@ -148,13 +150,22 @@ Documentación humana del proyecto.
   - Lint PHP portable usado por `composer lint`.
 
 - `ui-design-requirements.test.cjs`
-  - Comprueba tokens, tipografías locales, precargas y sprite de iconos.
+  - Comprueba identidad visual, accesibilidad, foco, objetivos táctiles, reduced motion y ausencia de confirmaciones nativas.
 
 - `ui-shell-behavior.test.cjs`
   - Verifica navegación sincronizada, región viva y diálogo accesible.
 
 - `training-ui-behavior.test.cjs`
   - Verifica búsqueda, bloqueo por gimnasio, selección de ejercicio y anuncio de nueva RM.
+
+- `history-ui-behavior.test.cjs`
+  - Verifica el resumen, las escalas, los estados vacíos y el fallback de Chart.js.
+
+- `management-ui-behavior.test.cjs`
+  - Verifica metadatos, estados del editor contextual y confirmaciones de borrado.
+
+- `auth-onboarding-ui.test.cjs`
+  - Verifica estados excluyentes de acceso y progreso de onboarding.
 
 - `desktop-ui-requirements.test.cjs` y `desktop-ui-behavior.test.cjs`
   - Protegen la estructura y el comportamiento responsive de escritorio.
@@ -270,6 +281,9 @@ composer lint
 node scripts\ui-design-requirements.test.cjs
 node scripts\ui-shell-behavior.test.cjs
 node scripts\training-ui-behavior.test.cjs
+node scripts\history-ui-behavior.test.cjs
+node scripts\management-ui-behavior.test.cjs
+node scripts\auth-onboarding-ui.test.cjs
 node scripts\desktop-ui-requirements.test.cjs
 node scripts\desktop-ui-behavior.test.cjs
 Get-ChildItem -Recurse -Filter *.php | Where-Object { $_.FullName -notlike '*\vendor\*' } | ForEach-Object { php -l $_.FullName }

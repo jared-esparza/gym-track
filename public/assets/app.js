@@ -1413,6 +1413,7 @@ function renderHistory(data) {
     : 'Todos los gimnasios';
   const hasRecords = data.records.length > 0;
   $('historyChartFrame').classList.remove('hidden');
+  $('historyChartFrame').classList.toggle('is-empty', !hasRecords);
   $('historyEmptyState').classList.toggle('hidden', hasRecords);
   $('historyEmptyState').innerHTML = hasRecords
     ? ''
@@ -1466,6 +1467,7 @@ function bindHistoryActions(container) {
 
 function renderChart(points) {
   if (!window.Chart) {
+    $('historyChartFrame').classList.add('is-empty');
     $('historyEmptyState').classList.remove('hidden');
     $('historyChart').classList.add('hidden');
     $('historyEmptyState').textContent = 'El gráfico no está disponible. Tus registros y métricas siguen visibles.';

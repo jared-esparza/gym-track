@@ -36,17 +36,18 @@ Implementado actualmente:
 
 - Sistema visual propio con grafito, azul de discos y naranja cinta; tipografías locales IBM Plex Sans y Barlow Condensed.
 - Iconos SVG locales para navegación y acciones comunes.
-- Shell responsive con sidebar en escritorio, navegación inferior en móvil y estado activo sincronizado mediante `aria-current`.
-- Región de feedback accesible y diálogo de confirmación reutilizable con restauración de foco.
+- Shell responsive con sidebar en escritorio, navegación inferior en móvil, estado activo sincronizado mediante `aria-current` y controles táctiles de al menos 44 px.
+- Región de feedback accesible, foco visible, respeto de `prefers-reduced-motion` y diálogo de confirmación reutilizable con restauración de foco.
 - Cockpit de Entrenar con contexto de sesión, filtros por grupo, búsqueda tolerante a mayúsculas y diacríticos, listado enriquecido de ejercicios y panel destacado de registro.
 - Estado explícito "Elige gimnasio primero" cuando la preferencia está activa y falta la selección.
 - Feedback contextual al guardar una marca, incluido el mensaje de nueva RM.
+- Histórico con resumen de mejor/última marca, cambio y cantidad; tarjetas móviles, tabla desktop, gráfico con escala legible, estado vacío con acción y fallback cuando Chart.js no está disponible.
+- Gestión con instrucciones contextuales en el editor de escritorio, metadatos que envuelven nombres largos y confirmaciones específicas para borrar ejercicios, entrenamientos y gimnasios.
+- Acceso con identidad propia y ejemplo de marca; login, registro, recuperación y reset son estados excluyentes.
+- Onboarding progresivo para entrenamiento, ejercicio y primera marca, calculado con el endpoint existente `exercises` y sus `record_count`.
+- Contratos Node para sistema visual/accesibilidad, shell, responsive, Entrenar, Histórico, Gestión y onboarding.
 
-Pendiente del plan de rediseño documentado:
-
-- Aplicar la misma dirección visual a Histórico, Gestión y autenticación.
-- Sustituir las confirmaciones nativas restantes por el diálogo compartido.
-- Completar el pulido responsive, accesibilidad y revisión visual final del conjunto.
+El plan de rediseño documentado está implementado; no se han cambiado endpoints ni esquema de base de datos.
 
 La especificación y el plan de implementación viven en `docs/superpowers/specs/2026-10-19-cuaderno-de-hierro-design.md` y `docs/superpowers/plans/2026-10-19-cuaderno-de-hierro.md`.
 
@@ -82,7 +83,7 @@ La especificación y el plan de implementación viven en `docs/superpowers/specs
 - `scripts/lint.php`
   - Lint PHP portable usado por `composer lint`.
 - `scripts/*-ui-*.test.cjs`
-  - Contratos Node sin bundler para sistema visual, shell accesible, responsive y flujo de Entrenar.
+  - Contratos Node sin bundler para identidad/accesibilidad, shell, responsive, Entrenar, Histórico, Gestión y onboarding.
 - `phpunit.xml`
   - Configuración de PHPUnit.
 - `.env.example`
@@ -205,26 +206,30 @@ Pantallas principales:
 - Histórico:
   - Elegir grupo y ejercicio, o dejar el grupo en "Todos los grupos" para escoger cualquier ejercicio.
   - Si los gimnasios estan activos, elegir gimnasio o "Sin gimnasio" antes de elegir ejercicio; no hay vista mezclada de todos los gimnasios en ese modo.
-  - En la carga inicial, `loadBootstrap()` llama a `loadExercises('history')` para que el selector muestre todos los ejercicios sin esperar un cambio manual de grupo.
+  - `loadBootstrap()` carga los ejercicios disponibles para que el selector no dependa de un cambio manual de grupo.
+  - El resumen presenta mejor marca, última marca, cambio total y cantidad de registros; los valores ausentes se muestran como "—".
   - Con gimnasios activos, grafico, tarjetas y tabla se filtran por el gimnasio seleccionado o por registros "Sin gimnasio".
-  - Ver gráfico de mejor marca diaria.
+  - El gráfico de mejor marca diaria ajusta la escala cuando hay progresión visible y conserva una orientación útil si Chart.js no carga.
   - Ver registros como tarjetas en móvil y tabla en pantallas amplias.
   - Editar registros con formulario embebido.
   - La edicion permite corregir el gimnasio del registro, incluido dejarlo como "Sin gimnasio".
-  - Eliminar registros con confirmación.
+  - Un histórico vacío invita a ir a Entrenar; borrar un registro requiere confirmación accesible y anuncia el resultado.
 - Gestión:
-  - Los apartados de Gestion funcionan como acordeon exclusivo y pueden estar todos cerrados. Al entrar en Gestion todos aparecen cerrados por defecto.
+  - Los apartados funcionan como acordeón exclusivo en móvil y subnavegación en escritorio.
   - Apartado de entrenamientos: listar, crear, editar y eliminar.
   - Apartado de gimnasios: activar/desactivar la feature, listar, crear, editar y eliminar gimnasios.
   - No se puede eliminar un gimnasio con registros asociados; si solo aparece en allow-lists de ejercicios, se elimina y se limpian esas relaciones.
-  - Apartados de gimnasios, entrenamientos y ejercicios: listar, crear, editar y eliminar. La edicion se abre dentro de la tarjeta del elemento; la creacion se abre al inicio del apartado correspondiente.
+  - Apartados de gimnasios, entrenamientos y ejercicios: listar, crear, editar y eliminar. En móvil los formularios permanecen embebidos; en escritorio se trasladan a un editor lateral con instrucciones contextuales cuando está vacío.
+  - Las eliminaciones usan el diálogo compartido con una etiqueta de acción específica y feedback accesible.
   - Con gimnasios activos, el formulario de ejercicio permite elegir gimnasios permitidos. Sin seleccion significa disponible en todos los gimnasios del usuario.
   - Al eliminar un ejercicio se avisa de que también se eliminarán todos sus registros de marcas asociados.
   - Apartado de datos: exportar backup JSON v2, exportar CSVs e importar con previsualizacion y confirmacion.
 
-Onboarding actual:
+Onboarding:
 
-- Si el usuario no tiene entrenamientos, se muestra un panel de "Primer entrenamiento" con CTA para ir a Gestión y abrir el formulario de nuevo entrenamiento.
+- El panel presenta tres pasos: "Crea tu primer entrenamiento", "Añade tu primer ejercicio" y "Registra tu primera marca".
+- La acción principal conduce al formulario o pantalla del siguiente paso incompleto; el panel se oculta al completar los tres.
+- `loadOnboardingProgress()` reutiliza `exercises` y suma `record_count`, sin cambios de backend.
 
 ## Cómo probar en local
 
@@ -269,12 +274,15 @@ node --check public\assets\app.js
 node scripts\ui-design-requirements.test.cjs
 node scripts\ui-shell-behavior.test.cjs
 node scripts\training-ui-behavior.test.cjs
+node scripts\history-ui-behavior.test.cjs
+node scripts\management-ui-behavior.test.cjs
+node scripts\auth-onboarding-ui.test.cjs
 node scripts\desktop-ui-requirements.test.cjs
 node scripts\desktop-ui-behavior.test.cjs
 composer test
 ```
 
-La suite PHPUnit actual contiene 13 tests y 41 aserciones. El checkpoint de Entrenar se revisó además en navegador a 390 × 844 y 1440 × 900.
+La suite PHPUnit contiene 13 tests y 41 aserciones. El frontend se revisó en navegador a 390 × 844, 768 × 1024 y escritorio; contraste de navegación y estados vacíos se comprobaron visualmente.
 
 También se comprobó que el servidor PHP responde con HTTP 200 para:
 
@@ -284,7 +292,7 @@ También se comprobó que el servidor PHP responde con HTTP 200 para:
 
 ## Puntos importantes / deuda conocida
 
-- La V1 funcional ya tiene identidad visual propia y el nuevo flujo de Entrenar; Histórico, Gestión y auth aún conservan parte del lenguaje anterior hasta completar el plan.
+- Las pantallas principales comparten la identidad Cuaderno de hierro. El siguiente trabajo de diseño debería responder a necesidades observadas con usuarios, no sustituir el sistema visual completo.
 - Hay suite PHPUnit para helpers de seguridad e importacion, mas una prueba local ignorada en `.superpowers/implementation-tests/management-plan.test.cjs`.
 - `database/schema.sql` es la fuente canonica para instalaciones nuevas.
 - `database/schema.sql` ya refleja el modelo actual con gimnasios opcionales; cualquier instalación antigua debe compararse y migrarse antes de desplegar cambios de esquema.

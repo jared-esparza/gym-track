@@ -113,7 +113,7 @@ button:active {
 }
 
 .compact {
-  min-height: 38px;
+  min-height: 44px;
   padding: 0 12px;
 }
 
@@ -137,6 +137,7 @@ button:active {
 input,
 select,
 textarea {
+  min-height: 44px;
   width: 100%;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-control);
@@ -451,7 +452,7 @@ h3 {
 }
 
 .manage-toggle {
-  min-height: 0;
+  min-height: 44px;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -610,7 +611,7 @@ h3 {
 }
 
 .training-group-filters button {
-  min-height: 40px;
+  min-height: 44px;
   flex: 0 0 auto;
   border: 1px solid var(--line-strong);
   background: var(--color-paper);
@@ -840,7 +841,7 @@ h3 {
 }
 
 .notes-box .ghost {
-  min-height: 38px;
+  min-height: 44px;
 }
 
 .record-entry {
@@ -895,7 +896,7 @@ fieldset {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 42px;
+  min-height: 44px;
   color: var(--ink);
   font-weight: 650;
 }
@@ -1060,7 +1061,7 @@ fieldset {
 }
 
 .compact-actions button {
-  min-height: 38px;
+  min-height: 44px;
   padding: 0 12px;
 }
 
@@ -1088,6 +1089,13 @@ fieldset {
   border-radius: 8px;
   background: var(--panel-soft);
   padding: 10px;
+}
+
+.chart-frame.is-empty {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
 .empty-state {
@@ -1203,7 +1211,7 @@ fieldset {
 }
 
 .text-button {
-  min-height: auto;
+  min-height: 44px;
   padding: 0;
   border-radius: 0;
   background: transparent;
@@ -1444,8 +1452,7 @@ details form {
     gap: 8px;
   }
 
-  .desktop-nav button,
-  .manage-nav-button {
+  .desktop-nav button {
     justify-content: flex-start;
     width: 100%;
     background: transparent;
@@ -1460,6 +1467,21 @@ details form {
     background: rgba(36, 83, 230, 0.28);
     border-color: rgba(116, 145, 239, 0.6);
     box-shadow: inset 3px 0 0 var(--color-tape-orange);
+  }
+
+  .manage-nav-button {
+    justify-content: flex-start;
+    width: 100%;
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--line);
+    text-align: left;
+  }
+
+  .manage-nav-button.active {
+    color: var(--accent-dark);
+    background: var(--accent-soft);
+    border-color: #B8C6F8;
   }
 
   .desktop-nav button {
@@ -1642,11 +1664,18 @@ details form {
   }
 
   .compact-actions button {
-    min-height: 34px;
+    min-height: 44px;
   }
 
   .desktop-editor-slot {
     min-height: 220px;
+  }
+
+  .desktop-editor-slot[data-editor-mode="empty"] {
+    min-height: 0;
+    border: 0;
+    background: transparent;
+    padding: 0;
   }
 
   .desktop-editor-pane,
@@ -1692,5 +1721,20 @@ details form {
 
   .data-actions {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  button:active {
+    transform: none;
   }
 }

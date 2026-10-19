@@ -143,6 +143,7 @@ node scripts\training-ui-behavior.test.cjs
 node scripts\history-ui-behavior.test.cjs
 node scripts\management-ui-behavior.test.cjs
 node scripts\auth-onboarding-ui.test.cjs
+node scripts\ui-workflow-regressions.test.cjs
 node scripts\desktop-ui-requirements.test.cjs
 node scripts\desktop-ui-behavior.test.cjs
 Get-ChildItem -Recurse -Filter *.php | Where-Object { $_.FullName -notlike '*\vendor\*' } | ForEach-Object { php -l $_.FullName }

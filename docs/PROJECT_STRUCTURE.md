@@ -167,6 +167,9 @@ Documentación humana del proyecto.
 - `auth-onboarding-ui.test.cjs`
   - Verifica estados excluyentes de acceso y progreso de onboarding.
 
+- `ui-workflow-regressions.test.cjs`
+  - Verifica acciones únicas del onboarding, navegación desde Histórico vacío, conservación del editor activo y actualización de progreso tras crear o borrar datos.
+
 - `desktop-ui-requirements.test.cjs` y `desktop-ui-behavior.test.cjs`
   - Protegen la estructura y el comportamiento responsive de escritorio.
 
@@ -284,6 +287,7 @@ node scripts\training-ui-behavior.test.cjs
 node scripts\history-ui-behavior.test.cjs
 node scripts\management-ui-behavior.test.cjs
 node scripts\auth-onboarding-ui.test.cjs
+node scripts\ui-workflow-regressions.test.cjs
 node scripts\desktop-ui-requirements.test.cjs
 node scripts\desktop-ui-behavior.test.cjs
 Get-ChildItem -Recurse -Filter *.php | Where-Object { $_.FullName -notlike '*\vendor\*' } | ForEach-Object { php -l $_.FullName }

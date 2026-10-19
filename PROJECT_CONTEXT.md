@@ -45,6 +45,7 @@ Implementado actualmente:
 - Gestión con instrucciones contextuales en el editor de escritorio, metadatos que envuelven nombres largos y confirmaciones específicas para borrar ejercicios, entrenamientos y gimnasios.
 - Acceso con identidad propia y ejemplo de marca; login, registro, recuperación y reset son estados excluyentes.
 - Onboarding progresivo para entrenamiento, ejercicio y primera marca, calculado con el endpoint existente `exercises` y sus `record_count`.
+- El onboarding se actualiza al crear o eliminar ejercicios y marcas; sus acciones se ejecutan una sola vez y llevan al control correspondiente.
 - Contratos Node para sistema visual/accesibilidad, shell, responsive, Entrenar, Histórico, Gestión y onboarding.
 
 El plan de rediseño documentado está implementado; no se han cambiado endpoints ni esquema de base de datos.
@@ -277,6 +278,7 @@ node scripts\training-ui-behavior.test.cjs
 node scripts\history-ui-behavior.test.cjs
 node scripts\management-ui-behavior.test.cjs
 node scripts\auth-onboarding-ui.test.cjs
+node scripts\ui-workflow-regressions.test.cjs
 node scripts\desktop-ui-requirements.test.cjs
 node scripts\desktop-ui-behavior.test.cjs
 composer test

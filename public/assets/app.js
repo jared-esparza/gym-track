@@ -240,7 +240,9 @@ function renderTrainingContext() {
 
 function summarizeHistory(records) {
   if (!records.length) return { best: null, latest: null, delta: null, count: 0, metricType: null };
-  const chronological = [...records].sort((a, b) => String(a.recorded_at).localeCompare(String(b.recorded_at)));
+  const chronological = [...records].sort((a, b) => (
+    String(a.recorded_at).localeCompare(String(b.recorded_at)) || Number(a.id || 0) - Number(b.id || 0)
+  ));
   const values = chronological.map((record) => Number(record.value)).filter(Number.isFinite);
   const latestRecord = chronological[chronological.length - 1];
   const latest = Number.isFinite(Number(latestRecord.value)) ? Number(latestRecord.value) : null;
@@ -292,7 +294,7 @@ function historyChartOptions(values) {
 }
 
 function setHistoryGate(message) {
-  $('historyPanel').classList.remove('hidden');
+  showDesktopHistoryEmptyState();
   $('historyGateMessage').textContent = message;
   $('historyGate').classList.remove('hidden');
   $('historySummary').classList.add('hidden');
@@ -464,6 +466,10 @@ async function loadOnboardingProgress() {
   };
 }
 
+async function refreshOnboarding() {
+  renderOnboardingState(await loadOnboardingProgress());
+}
+
 function renderOnboardingState(progress) {
   const counts = {
     workouts: Math.max(0, Number(progress.workouts) || 0),
@@ -504,7 +510,10 @@ function renderOnboardingState(progress) {
     };
   } else {
     action.textContent = 'Registrar marca';
-    action.onclick = () => switchTab('trainTab');
+    action.onclick = () => {
+      switchTab('trainTab');
+      $('trainingExerciseSearch').focus();
+    };
   }
 }
 
@@ -524,7 +533,6 @@ function bindApp() {
   bindManageAccordion();
   bindResponsiveLayout();
 
-  $('onboardingActionBtn').addEventListener('click', () => $('onboardingActionBtn').onclick?.());
   $('activeWorkoutSelect').addEventListener('change', loadActiveWorkout);
   $('trainGymSelect').addEventListener('change', () => loadExercises('train'));
   $('trainGroupSelect').addEventListener('change', () => {
@@ -696,7 +704,7 @@ async function loadBootstrap() {
   if (selectedTrainGym && [...$('trainGymSelect').options].some((option) => option.value === selectedTrainGym)) $('trainGymSelect').value = selectedTrainGym;
   if (selectedHistoryGym && [...$('historyGymSelect').options].some((option) => option.value === selectedHistoryGym)) $('historyGymSelect').value = selectedHistoryGym;
   await loadManageExercises();
-  renderOnboardingState(await loadOnboardingProgress());
+  await refreshOnboarding();
   await loadExercises('history');
 
   if (state.workouts.length) {
@@ -861,6 +869,7 @@ async function createExercise(event) {
     form.classList.add('hidden');
     await selectTrainingExercise(data.id);
     if (!$('manageExerciseGroupSelect').value || $('manageExerciseGroupSelect').value === payload.muscle_group_id) await loadManageExercises();
+    await refreshOnboarding();
   } catch (error) {
     showMessage(error.message, 'error');
   }
@@ -929,6 +938,7 @@ async function saveRecord(event) {
     form.reset();
     await loadExerciseSummary();
     if (!$('manageExerciseGroupSelect').value || $('manageExerciseGroupSelect').value === savedGroupId) await loadManageExercises();
+    await refreshOnboarding();
   } catch (error) {
     showMessage(error.message, 'error');
   }
@@ -1167,7 +1177,7 @@ function hideManagementForm({ formId, homeId, listId }) {
   clearManagementEditing(listId);
   $(homeId).appendChild(form);
   const sectionByList = { manageExerciseList: 'exercises', workoutList: 'workouts', gymList: 'gyms' };
-  if (sectionByList[listId]) setManagementEditorState(sectionByList[listId], 'empty');
+  if (state.manageOpenSection === sectionByList[listId]) setManagementEditorState(sectionByList[listId], 'empty');
 }
 
 function clearManagementEditing(listId) {
@@ -1241,6 +1251,7 @@ async function saveManagedExercise(event) {
     $('manageExerciseGroupSelect').value = previousGroup ? (payload.muscle_group_id || previousGroup) : '';
     await loadManageExercises();
     await refreshExerciseSelectorsAfterManagedSave(payload.muscle_group_id);
+    await refreshOnboarding();
     showMessage('Ejercicio guardado.');
   } catch (error) {
     showMessage(error.message, 'error');
@@ -1261,6 +1272,7 @@ async function deleteExercise(id) {
     hideManageExerciseForm();
     clearDeletedExerciseSelections(id);
     await loadManageExercises();
+    await refreshOnboarding();
     announce('Ejercicio eliminado.', 'success');
     focusManagementSection('exercises');
   } catch (error) {
@@ -1434,7 +1446,7 @@ function renderHistory(data) {
   `).join('');
   $('historyRows').innerHTML = rows || '<tr><td colspan="5">Sin registros.</td></tr>';
   bindHistoryActions($('historyRows'));
-  $('historyEmptyState').querySelector('[data-action="train"]')?.addEventListener('click', () => switchTab('train'));
+  $('historyEmptyState').querySelector('[data-action="train"]')?.addEventListener('click', () => switchTab('trainTab'));
   if (hasRecords) {
     renderChart(data.chart);
   } else if (state.chart) {
@@ -1529,7 +1541,9 @@ async function deleteRecord(id) {
     await api(`records&id=${encodeURIComponent(id)}`, { method: 'DELETE' });
     hideRecordEditForm();
     await loadHistory();
+    await refreshOnboarding();
     announce('Registro eliminado.', 'success');
+    $('historyExerciseSelect').focus();
   } catch (error) {
     showMessage(error.message, 'error');
   }

@@ -341,6 +341,7 @@ node scripts\training-ui-behavior.test.cjs
 node scripts\history-ui-behavior.test.cjs
 node scripts\management-ui-behavior.test.cjs
 node scripts\auth-onboarding-ui.test.cjs
+node scripts\ui-workflow-regressions.test.cjs
 git diff --check
 ```
 

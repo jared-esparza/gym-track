@@ -52,6 +52,7 @@ context.loadBootstrap = async () => {};
 context.hideManageExerciseForm = () => {};
 context.clearDeletedExerciseSelections = () => {};
 context.loadManageExercises = async () => {};
+context.refreshOnboarding = async () => {};
 api.deleteWorkout(4);
 api.deleteGym(5);
 api.state.manageExercises = [{ id: 6, name: 'Press banca', record_count: 3 }];

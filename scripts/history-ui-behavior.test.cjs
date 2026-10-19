@@ -101,6 +101,10 @@ assert.deepEqual(JSON.parse(JSON.stringify(api.summarizeHistory(unorderedProgres
 });
 
 const unchangedScale = api.historyChartOptions([80, 80]);
+assert.deepEqual(JSON.parse(JSON.stringify(api.summarizeHistory([
+  { id: 2, value: '90', metric_type: 'kg', recorded_at: '2026-10-19 10:00:00' },
+  { id: 1, value: '80', metric_type: 'kg', recorded_at: '2026-10-19 10:00:00' },
+]))), { best: 90, latest: 90, delta: 10, count: 2, metricType: 'kg' }, 'equal timestamps should use record ID to identify the latest entry');
 assert.equal(unchangedScale.scales.y.beginAtZero, true, 'flat or single-value series should retain a zero baseline');
 const progressScale = api.historyChartOptions([80, 95, 105]);
 assert.equal(progressScale.scales.y.beginAtZero, false, 'visible progress may use a padded, legible scale');

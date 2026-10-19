@@ -341,9 +341,21 @@
             <div id="desktopExerciseEditorSlot" class="desktop-editor-pane" data-editor-section="exercises"></div>
             <div id="desktopWorkoutEditorSlot" class="desktop-editor-pane" data-editor-section="workouts"></div>
             <div id="desktopGymEditorSlot" class="desktop-editor-pane" data-editor-section="gyms"></div>
-            <div class="desktop-editor-empty" data-editor-section="data">
+            <div class="desktop-editor-empty hidden" data-editor-empty="exercises">
+              <span class="label">Editor de ejercicios</span>
+              <p class="muted">Elige un ejercicio para editarlo o crea uno nuevo desde el catálogo.</p>
+            </div>
+            <div class="desktop-editor-empty hidden" data-editor-empty="workouts">
+              <span class="label">Editor de entrenamientos</span>
+              <p class="muted">Elige un entrenamiento para editar sus grupos o crea una rutina nueva.</p>
+            </div>
+            <div class="desktop-editor-empty hidden" data-editor-empty="gyms">
+              <span class="label">Editor de gimnasios</span>
+              <p class="muted">Elige un gimnasio para cambiar su nombre o añade uno nuevo.</p>
+            </div>
+            <div class="desktop-editor-empty hidden" data-editor-empty="data">
               <span class="label">Datos</span>
-              <p class="muted">Las acciones de importacion y exportacion se gestionan en el panel principal.</p>
+              <p class="muted">Las acciones de importación y exportación se gestionan en el panel principal.</p>
             </div>
           </aside>
         </div>

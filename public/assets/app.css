@@ -867,6 +867,31 @@ fieldset {
   margin: 4px 0 0;
 }
 
+.entity-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 3px 10px;
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.entity-meta__part {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.entity-meta__part + .entity-meta__part::before {
+  content: "";
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  margin: 0 8px 2px 0;
+  border-radius: 50%;
+  background: var(--line-strong);
+}
+
 .item.is-editing {
   grid-template-columns: minmax(0, 1fr);
   border-color: #b6dcca;
@@ -1517,8 +1542,21 @@ details form {
   .desktop-editor-slot[data-active-section="exercises"] #desktopExerciseEditorSlot,
   .desktop-editor-slot[data-active-section="workouts"] #desktopWorkoutEditorSlot,
   .desktop-editor-slot[data-active-section="gyms"] #desktopGymEditorSlot,
-  .desktop-editor-slot[data-active-section="data"] .desktop-editor-empty {
+  .desktop-editor-slot[data-active-section="exercises"] [data-editor-empty="exercises"],
+  .desktop-editor-slot[data-active-section="workouts"] [data-editor-empty="workouts"],
+  .desktop-editor-slot[data-active-section="gyms"] [data-editor-empty="gyms"],
+  .desktop-editor-slot[data-active-section="data"] [data-editor-empty="data"] {
     display: block;
+  }
+
+  .desktop-editor-empty {
+    padding: 14px 10px;
+    border-left: 3px solid var(--color-tape-orange);
+  }
+
+  .desktop-editor-empty p {
+    margin: 7px 0 0;
+    max-width: 34ch;
   }
 
   .desktop-editor-slot .inline-form {

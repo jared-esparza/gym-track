@@ -589,8 +589,34 @@ function openManageSection(sectionId = null) {
   document.querySelectorAll('.manage-nav-button').forEach((button) => {
     button.classList.toggle('active', button.dataset.manageToggle === sectionId);
   });
+  const formId = { exercises: 'exerciseManagementForm', workouts: 'workoutForm', gyms: 'gymForm' }[sectionId];
+  const form = formId ? $(formId) : null;
+  const mode = form && !form.classList.contains('hidden') ? (form.elements.id?.value ? 'edit' : 'create') : 'empty';
+  setManagementEditorState(sectionId, mode);
+}
+
+function setManagementEditorState(sectionId, mode = 'empty') {
   const editorSlot = document.querySelector('.desktop-editor-slot');
-  if (editorSlot) editorSlot.dataset.activeSection = sectionId || '';
+  if (!editorSlot) return;
+  editorSlot.dataset.activeSection = sectionId || '';
+  editorSlot.dataset.editorMode = mode;
+  document.querySelectorAll('[data-editor-empty]').forEach((emptyState) => {
+    emptyState.classList.toggle('hidden', emptyState.dataset.editorEmpty !== sectionId || mode !== 'empty');
+  });
+}
+
+function entityMeta(parts) {
+  return parts
+    .filter((part) => part !== null && part !== undefined && String(part).trim() !== '')
+    .map((part) => `<span class="entity-meta__part">${escapeHtml(part)}</span>`)
+    .join('');
+}
+
+function focusManagementSection(sectionId) {
+  const selector = isDesktopLayout() ? '.manage-nav-button' : '.manage-section [data-manage-toggle]';
+  const button = [...document.querySelectorAll(selector)]
+    .find((item) => item.dataset.manageToggle === sectionId);
+  button?.focus();
 }
 
 async function loadBootstrap() {
@@ -898,11 +924,17 @@ async function editWorkout(id) {
 }
 
 async function deleteWorkout(id) {
-  if (!confirm('¿Eliminar este entrenamiento?')) return;
+  const confirmed = await openConfirmDialog({
+    title: 'Eliminar entrenamiento',
+    message: 'Se eliminará este entrenamiento y dejará de aparecer al registrar marcas.',
+    confirmLabel: 'Eliminar entrenamiento',
+  });
+  if (!confirmed) return;
   try {
     await api(`workout&id=${encodeURIComponent(id)}`, { method: 'DELETE' });
     await loadBootstrap();
-    showMessage('Entrenamiento eliminado.');
+    announce('Entrenamiento eliminado.', 'success');
+    focusManagementSection('workouts');
   } catch (error) {
     showMessage(error.message, 'error');
   }
@@ -1006,11 +1038,17 @@ async function saveGym(event) {
 }
 
 async function deleteGym(id) {
-  if (!confirm('¿Eliminar este gimnasio?')) return;
+  const confirmed = await openConfirmDialog({
+    title: 'Eliminar gimnasio',
+    message: 'Se eliminará este gimnasio y dejará de estar disponible para separar tus marcas.',
+    confirmLabel: 'Eliminar gimnasio',
+  });
+  if (!confirmed) return;
   try {
     await api(`gym&id=${encodeURIComponent(id)}`, { method: 'DELETE' });
     await loadBootstrap();
-    showMessage('Gimnasio eliminado.');
+    announce('Gimnasio eliminado.', 'success');
+    focusManagementSection('gyms');
   } catch (error) {
     showMessage(error.message, 'error');
   }
@@ -1035,11 +1073,10 @@ function renderManageExercises() {
     node.dataset.entityId = String(exercise.id);
     node.dataset.exerciseId = String(exercise.id);
     const count = Number(exercise.record_count || 0);
-    const gymText = state.gymsEnabled ? ` · ${escapeHtml(exerciseGymLabel(exercise))}` : '';
     node.innerHTML = `
       <div class="item-main" data-exercise-id="${escapeHtml(exercise.id)}">
         <strong>${escapeHtml(exercise.name)}</strong>
-        <p class="muted">${escapeHtml(groupName(exercise.muscle_group_id))} · ${exercise.metric_type} · ${count} registros${gymText}</p>
+        <p class="entity-meta">${entityMeta([groupName(exercise.muscle_group_id), exercise.metric_type, `${count} registros`, state.gymsEnabled ? exerciseGymLabel(exercise) : null])}</p>
       </div>
       <div class="action-row compact-actions">
         <button class="secondary" type="button">Editar</button>
@@ -1054,6 +1091,7 @@ function renderManageExercises() {
 
 function placeManagementForm({ formId, homeId, createSlotId, desktopEditorSlotId, listId, sectionId, entityId = null }) {
   openManageSection(sectionId);
+  setManagementEditorState(sectionId, entityId === null ? 'create' : 'edit');
   clearManagementEditing(listId);
   const form = $(formId);
   const desktopSlot = desktopEditorSlotId ? $(desktopEditorSlotId) : null;
@@ -1078,6 +1116,8 @@ function hideManagementForm({ formId, homeId, listId }) {
   form.classList.add('hidden');
   clearManagementEditing(listId);
   $(homeId).appendChild(form);
+  const sectionByList = { manageExerciseList: 'exercises', workoutList: 'workouts', gymList: 'gyms' };
+  if (sectionByList[listId]) setManagementEditorState(sectionByList[listId], 'empty');
 }
 
 function clearManagementEditing(listId) {
@@ -1162,15 +1202,17 @@ async function deleteExercise(id) {
   if (!exercise) return;
 
   const count = Number(exercise.record_count || 0);
-  const message = `¿Eliminar "${exercise.name}"? Si eliminas este ejercicio, también se eliminarán todos sus registros de marcas asociados (${count}).`;
-  if (!confirm(message)) return;
+  const message = `También se eliminarán los registros de marcas asociados a ${exercise.name} (${count}). Esta acción no se puede deshacer.`;
+  const confirmed = await openConfirmDialog({ title: 'Eliminar ejercicio', message, confirmLabel: 'Eliminar ejercicio' });
+  if (!confirmed) return;
 
   try {
     await api(`exercise&id=${encodeURIComponent(id)}`, { method: 'DELETE' });
     hideManageExerciseForm();
     clearDeletedExerciseSelections(id);
     await loadManageExercises();
-    showMessage('Ejercicio eliminado.');
+    announce('Ejercicio eliminado.', 'success');
+    focusManagementSection('exercises');
   } catch (error) {
     showMessage(error.message, 'error');
   }

@@ -9,7 +9,8 @@ gym-tracker/
 |-- app/                  Lógica PHP compartida: config, DB, auth, request/response, mail
 |-- database/             SQL inicial de base de datos
 |-- docs/                 Documentación humana del proyecto
-|-- public/               Raíz web: HTML, API, CSS y JS
+|-- public/               Raíz web: HTML, API, CSS, JS, fuentes e iconos
+|-- scripts/              Lint PHP y contratos de UI ejecutables con Node
 |-- storage/              Archivos generados en local, como logs de email
 |-- tests/                Tests PHPUnit de seguridad e importacion
 |-- vendor/               Dependencias Composer
@@ -88,11 +89,20 @@ Es la raíz web. En hosting ideal, el document root debe apuntar a esta carpeta.
   - Estado de frontend, llamadas API y listeners de interacción.
   - Gestiona cambios de pestaña, carga de selects, guardado de registros, edición y borrado.
   - Si algo “no responde” al pulsar un botón o hay que cambiar un flujo de pantalla, se revisa aquí.
+  - Incluye las interfaces compartidas `setActiveNavigation()`, `announce()`, `openConfirmDialog()` y el renderizado del cockpit de Entrenar.
 
 - `assets/app.css`
   - Estilos mobile-first.
   - Controla paneles, formularios, navegación inferior, tarjetas móviles, tablas, avisos y botones.
   - Si un cambio es visual sin alterar datos, probablemente va aquí.
+
+- `assets/fonts/`
+  - Contiene IBM Plex Sans y Barlow Condensed en WOFF2, autoalojadas para no depender de un proveedor en tiempo de ejecución.
+  - `OFL.txt` conserva la licencia de distribución.
+
+- `assets/icons/sprite.svg`
+  - Sprite local con iconos de Entrenar, Histórico, Gestión, salir, buscar, editar y eliminar.
+  - Los iconos se consumen con elementos `<use>` desde `index.html`.
 
 - `.htaccess`
   - Cabeceras básicas si se sirve desde Apache.
@@ -125,6 +135,29 @@ Documentación humana del proyecto.
 
 - `PROJECT_STRUCTURE.md`
   - Esta guía.
+
+- `superpowers/specs/2026-10-19-cuaderno-de-hierro-design.md`
+  - Especificación de producto y dirección visual del rediseño.
+
+- `superpowers/plans/2026-10-19-cuaderno-de-hierro.md`
+  - Plan por tareas. El sistema visual, el shell compartido y el cockpit de Entrenar ya están implementados; Histórico, Gestión, auth y el pulido final siguen pendientes.
+
+### `scripts/`
+
+- `lint.php`
+  - Lint PHP portable usado por `composer lint`.
+
+- `ui-design-requirements.test.cjs`
+  - Comprueba tokens, tipografías locales, precargas y sprite de iconos.
+
+- `ui-shell-behavior.test.cjs`
+  - Verifica navegación sincronizada, región viva y diálogo accesible.
+
+- `training-ui-behavior.test.cjs`
+  - Verifica búsqueda, bloqueo por gimnasio, selección de ejercicio y anuncio de nueva RM.
+
+- `desktop-ui-requirements.test.cjs` y `desktop-ui-behavior.test.cjs`
+  - Protegen la estructura y el comportamiento responsive de escritorio.
 
 ### `tests/`
 
@@ -207,8 +240,9 @@ Tests unitarios con PHPUnit.
 
 - Entrenar:
   - HTML: `trainTab` en `public/index.html`.
-  - JS: `loadActiveWorkout()`, `loadExercises()`, `loadExerciseSummary()`, `saveRecord()`.
+  - JS: `renderTrainingContext()`, `renderTrainingGroups()`, `filterTrainingExercises()`, `renderTrainingExerciseList()`, `selectTrainingExercise()`, `loadExerciseSummary()`, `saveRecord()` y `renderRecordConfirmation()`.
   - API: `bootstrap`, `workout`, `exercises`, `exercise-summary`, `records`.
+  - Nota: los filtros visuales y la búsqueda se mantienen sincronizados con los selects nativos accesibles.
   - Nota: `loadExercises()` puede cargar por grupo o, si no hay grupo seleccionado, por `workout_id` para mostrar todos los ejercicios permitidos por el entrenamiento activo.
 
 - Histórico:
@@ -232,14 +266,14 @@ Tests unitarios con PHPUnit.
 ```powershell
 composer validate --strict
 composer test
+composer lint
+node scripts\ui-design-requirements.test.cjs
+node scripts\ui-shell-behavior.test.cjs
+node scripts\training-ui-behavior.test.cjs
+node scripts\desktop-ui-requirements.test.cjs
+node scripts\desktop-ui-behavior.test.cjs
 Get-ChildItem -Recurse -Filter *.php | Where-Object { $_.FullName -notlike '*\vendor\*' } | ForEach-Object { php -l $_.FullName }
 node --check public\assets\app.js
-```
-
-Si se mantienen las pruebas locales ignoradas en `.superpowers/`, también se puede ejecutar:
-
-```powershell
-node .superpowers\implementation-tests\management-plan.test.cjs
 ```
 
 Para comprobar que la app sirve archivos básicos:

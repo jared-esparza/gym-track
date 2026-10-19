@@ -28,6 +28,28 @@ Funcionalidad principal:
 
 Composer ya está configurado en `composer.json`. En local, `APP_ENV=local` hace que los emails se escriban en `storage/logs/mail.log` en vez de enviarse por SMTP.
 
+## Estado actual del frontend
+
+La aplicación usa la identidad visual **Cuaderno de hierro**. El rediseño se implementa sin framework ni proceso de build y conserva los contratos de la API y de la base de datos.
+
+Implementado actualmente:
+
+- Sistema visual propio con grafito, azul de discos y naranja cinta; tipografías locales IBM Plex Sans y Barlow Condensed.
+- Iconos SVG locales para navegación y acciones comunes.
+- Shell responsive con sidebar en escritorio, navegación inferior en móvil y estado activo sincronizado mediante `aria-current`.
+- Región de feedback accesible y diálogo de confirmación reutilizable con restauración de foco.
+- Cockpit de Entrenar con contexto de sesión, filtros por grupo, búsqueda tolerante a mayúsculas y diacríticos, listado enriquecido de ejercicios y panel destacado de registro.
+- Estado explícito "Elige gimnasio primero" cuando la preferencia está activa y falta la selección.
+- Feedback contextual al guardar una marca, incluido el mensaje de nueva RM.
+
+Pendiente del plan de rediseño documentado:
+
+- Aplicar la misma dirección visual a Histórico, Gestión y autenticación.
+- Sustituir las confirmaciones nativas restantes por el diálogo compartido.
+- Completar el pulido responsive, accesibilidad y revisión visual final del conjunto.
+
+La especificación y el plan de implementación viven en `docs/superpowers/specs/2026-10-19-cuaderno-de-hierro-design.md` y `docs/superpowers/plans/2026-10-19-cuaderno-de-hierro.md`.
+
 ## Estructura
 
 - `app/`
@@ -46,6 +68,8 @@ Composer ya está configurado en `composer.json`. En local, `APP_ENV=local` hace
   - `api.php`: router API JSON de toda la app.
   - `assets/app.css`: estilos mobile-first.
   - `assets/app.js`: estado de frontend, llamadas API e interacción de pantalla.
+  - `assets/fonts/`: IBM Plex Sans y Barlow Condensed autoalojadas, con licencia OFL.
+  - `assets/icons/sprite.svg`: símbolos SVG compartidos de navegación y acciones.
   - `.htaccess`: cabeceras básicas si se sirve con Apache.
 - `database/schema.sql`
   - Crea todas las tablas e inserta los grupos musculares fijos.
@@ -57,6 +81,8 @@ Composer ya está configurado en `composer.json`. En local, `APP_ENV=local` hace
   - Tests PHPUnit para seguridad e import/export.
 - `scripts/lint.php`
   - Lint PHP portable usado por `composer lint`.
+- `scripts/*-ui-*.test.cjs`
+  - Contratos Node sin bundler para sistema visual, shell accesible, responsive y flujo de Entrenar.
 - `phpunit.xml`
   - Configuración de PHPUnit.
 - `.env.example`
@@ -164,16 +190,18 @@ Pantallas principales:
 - Entrenar:
   - Elegir entrenamiento activo.
   - Si los gimnasios estan activos, elegir gimnasio antes de elegir ejercicio; sin gimnasio seleccionado se ocultan selector de ejercicio y formulario de marca.
-  - Elegir grupo muscular permitido por ese entrenamiento, o dejarlo en "Todos los grupos del entrenamiento".
-  - Si no hay grupo seleccionado, el selector de ejercicio muestra todos los ejercicios de los grupos incluidos en el entrenamiento activo.
+  - Filtrar mediante controles visibles por grupo muscular permitido, o dejar "Todos".
+  - Buscar ejercicios por nombre o grupo sin distinguir mayúsculas ni diacríticos.
+  - Los selects nativos siguen sincronizados como controles accesibles; la lista enriquecida es el recorrido visual principal.
+  - Si no hay grupo seleccionado, la lista muestra todos los ejercicios de los grupos incluidos en el entrenamiento activo.
   - Con gimnasios activos, el selector de ejercicio se filtra ademas por la allow-list del gimnasio seleccionado.
   - Elegir o crear ejercicio.
   - Si se crea un ejercicio rapido con gimnasios activos, queda limitado por defecto al gimnasio actual.
   - Con gimnasios activos, RM y ultimo registro pertenecen al gimnasio seleccionado.
-  - Ver RM, último registro y notas.
-  - Guardar marca y nota puntual.
+  - Ver RM, último registro y notas en el cockpit destacado.
+  - Guardar marca y, opcionalmente, desplegar "Añadir nota" para la nota puntual.
   - Con gimnasios activos, la marca se guarda con `gym_id`.
-  - Tras guardar una marca, se mantiene el entrenamiento activo y el gimnasio, pero se limpian grupo, ejercicio y panel para registrar otro ejercicio.
+  - Tras guardar una marca, se mantienen entrenamiento, gimnasio, grupo y ejercicio; se refrescan RM y último registro y se anuncia si es una nueva RM.
 - Histórico:
   - Elegir grupo y ejercicio, o dejar el grupo en "Todos los grupos" para escoger cualquier ejercicio.
   - Si los gimnasios estan activos, elegir gimnasio o "Sin gimnasio" antes de elegir ejercicio; no hay vista mezclada de todos los gimnasios en ese modo.
@@ -238,9 +266,15 @@ Comandos ejecutados correctamente durante el desarrollo:
 composer validate --strict
 composer lint
 node --check public\assets\app.js
-node .superpowers\implementation-tests\management-plan.test.cjs
+node scripts\ui-design-requirements.test.cjs
+node scripts\ui-shell-behavior.test.cjs
+node scripts\training-ui-behavior.test.cjs
+node scripts\desktop-ui-requirements.test.cjs
+node scripts\desktop-ui-behavior.test.cjs
 composer test
 ```
+
+La suite PHPUnit actual contiene 13 tests y 41 aserciones. El checkpoint de Entrenar se revisó además en navegador a 390 × 844 y 1440 × 900.
 
 También se comprobó que el servidor PHP responde con HTTP 200 para:
 
@@ -250,10 +284,10 @@ También se comprobó que el servidor PHP responde con HTTP 200 para:
 
 ## Puntos importantes / deuda conocida
 
-- La app es una primera V1 funcional, pero todavía puede pulirse visualmente.
+- La V1 funcional ya tiene identidad visual propia y el nuevo flujo de Entrenar; Histórico, Gestión y auth aún conservan parte del lenguaje anterior hasta completar el plan.
 - Hay suite PHPUnit para helpers de seguridad e importacion, mas una prueba local ignorada en `.superpowers/implementation-tests/management-plan.test.cjs`.
 - `database/schema.sql` es la fuente canonica para instalaciones nuevas.
-- En bases existentes hay que aplicar SQL incremental para cambios ya desplegados. Actualmente `database/2026-06-10_optional_gyms_migration.sql` anade gimnasios opcionales y se mantiene como archivo local no comprometido hasta decidir si entra al repositorio.
+- `database/schema.sql` ya refleja el modelo actual con gimnasios opcionales; cualquier instalación antigua debe compararse y migrarse antes de desplegar cambios de esquema.
 - Si una base antigua no tiene `rate_limits`, crear esa tabla desde `database/schema.sql` antes de activar el rate limiting.
 - Chart.js se carga desde CDN, por lo que requiere conexión a internet para ver gráficos.
 - El `.htaccess` raíz ayuda en hosting compartido, pero el despliegue ideal es apuntar document root a `public/`.

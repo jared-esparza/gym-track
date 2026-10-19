@@ -226,12 +226,86 @@ h3 {
 }
 
 .auth-panel {
-  width: min(100%, 420px);
+  width: min(100%, 460px);
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 22px;
   box-shadow: var(--shadow);
+}
+
+.auth-brand {
+  margin-bottom: 24px;
+  padding: 4px 0 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.auth-brand__name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.auth-brand__name .eyebrow {
+  margin: 0;
+}
+
+.auth-brand h1 {
+  max-width: 9ch;
+  margin: 0;
+  font: 600 clamp(2.4rem, 11vw, 3.6rem)/0.92 var(--font-display);
+  letter-spacing: -0.025em;
+  overflow-wrap: anywhere;
+}
+
+.auth-brand > .muted {
+  max-width: 34ch;
+  margin: 10px 0 14px;
+}
+
+.auth-specimen {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 2px 14px;
+  overflow: hidden;
+  border: 1px solid #354154;
+  border-radius: var(--radius-panel);
+  background: var(--color-graphite);
+  color: #fff;
+  padding: 12px 16px 12px 18px;
+}
+
+.auth-specimen::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--color-tape-orange);
+  content: "";
+}
+
+.auth-specimen__label {
+  color: #cbd3df;
+  font-size: 0.86rem;
+}
+
+.auth-specimen strong {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  font: 600 2rem/1 var(--font-display);
+  font-variant-numeric: tabular-nums;
+}
+
+.auth-specimen strong small {
+  color: #cbd3df;
+  font: 600 0.9rem var(--font-ui);
+}
+
+.auth-specimen__note {
+  color: #9da9ba;
+  font-size: 0.72rem;
 }
 
 .app-shell {
@@ -915,6 +989,47 @@ fieldset {
   gap: 8px;
   grid-template-columns: 1fr;
   margin-bottom: 14px;
+}
+
+.onboarding-steps {
+  display: grid;
+  gap: 7px;
+  margin: 0 0 14px;
+  padding: 0;
+  list-style: none;
+}
+
+.onboarding-step {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: #fff;
+  padding: 10px 12px;
+}
+
+.onboarding-step[data-state="current"] {
+  border-color: var(--accent);
+  box-shadow: inset 3px 0 0 var(--color-tape-orange);
+}
+
+.onboarding-step[data-state="complete"] .onboarding-step__status {
+  color: var(--color-success);
+}
+
+.onboarding-step__text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+
+.onboarding-step__status {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 0.76rem;
 }
 
 .summary-grid {

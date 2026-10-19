@@ -13,10 +13,18 @@
   <body>
     <main id="authView" class="auth-shell hidden">
       <section class="auth-panel">
-        <div class="brand-block">
-          <p class="eyebrow">Diario de entrenamiento</p>
-          <h1>Gym Tracker</h1>
-          <p class="muted">Registra marcas, revisa tu RM y mantén tus entrenamientos ordenados.</p>
+        <div class="auth-brand">
+          <div class="auth-brand__name">
+            <span class="brand-mark" aria-hidden="true">CH</span>
+            <span class="eyebrow">Diario de entrenamiento</span>
+          </div>
+          <h1>Cuaderno de hierro</h1>
+          <p class="muted">Cada sesión deja una marca. Aquí puedes seguirla.</p>
+          <div class="auth-specimen" aria-label="Ejemplo de registro de entrenamiento">
+            <span class="auth-specimen__label">Press banca</span>
+            <strong>80 <small>kg</small></strong>
+            <span class="auth-specimen__note">Última sesión · mejor marca</span>
+          </div>
         </div>
         <div id="authMessage" class="notice hidden"></div>
 
@@ -98,12 +106,13 @@
         <div id="onboarding" class="panel hidden">
           <div class="screen-head compact-head">
             <div>
-              <p class="eyebrow">Inicio</p>
-              <h2>Primer entrenamiento</h2>
-              <p class="muted">Crea un entrenamiento para empezar a registrar ejercicios.</p>
+              <p class="eyebrow">Primeros pasos</p>
+              <h2>Prepara tu cuaderno</h2>
+              <p class="muted">Completa estos pasos a tu ritmo. Te llevamos al siguiente.</p>
             </div>
           </div>
-          <button type="button" id="onboardingWorkoutBtn" class="secondary">Crear entrenamiento</button>
+          <ol id="onboardingSteps" class="onboarding-steps"></ol>
+          <button type="button" id="onboardingActionBtn">Crear entrenamiento</button>
         </div>
 
         <form id="activeWorkoutForm" class="session-context">

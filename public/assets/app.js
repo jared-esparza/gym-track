@@ -455,6 +455,59 @@ function showAuthMode(mode) {
   $('forgotDetails').open = isForgot;
 }
 
+async function loadOnboardingProgress() {
+  const availableExercises = (await api('exercises')).exercises;
+  return {
+    workouts: state.workouts.length,
+    exercises: availableExercises.length,
+    records: availableExercises.reduce((total, exercise) => total + Math.max(0, Number(exercise.record_count) || 0), 0),
+  };
+}
+
+function renderOnboardingState(progress) {
+  const counts = {
+    workouts: Math.max(0, Number(progress.workouts) || 0),
+    exercises: Math.max(0, Number(progress.exercises) || 0),
+    records: Math.max(0, Number(progress.records) || 0),
+  };
+  const steps = [
+    { key: 'workouts', label: 'Crea tu primer entrenamiento' },
+    { key: 'exercises', label: 'Añade tu primer ejercicio' },
+    { key: 'records', label: 'Registra tu primera marca' },
+  ];
+  const nextKey = steps.find(({ key }) => counts[key] === 0)?.key || null;
+  $('onboarding').classList.toggle('hidden', !nextKey);
+  $('onboardingSteps').innerHTML = steps.map(({ key, label }) => {
+    const complete = counts[key] > 0;
+    const current = key === nextKey;
+    const status = complete ? 'Listo' : current ? 'Siguiente' : 'Después';
+    return `<li class="onboarding-step" data-state="${complete ? 'complete' : current ? 'current' : 'upcoming'}"${current ? ' aria-current="step"' : ''}>
+      <span class="onboarding-step__text">${label}</span><span class="onboarding-step__status">${status}</span>
+    </li>`;
+  }).join('');
+
+  const action = $('onboardingActionBtn');
+  if (!nextKey) return;
+  if (nextKey === 'workouts') {
+    action.textContent = 'Crear entrenamiento';
+    action.onclick = () => {
+      switchTab('manageTab');
+      openManageSection('workouts');
+      resetWorkoutForm();
+    };
+  } else if (nextKey === 'exercises') {
+    action.textContent = 'Añadir ejercicio';
+    action.onclick = () => {
+      switchTab('manageTab');
+      openManageSection('exercises');
+      resetManageExerciseForm();
+    };
+  } else {
+    action.textContent = 'Registrar marca';
+    action.onclick = () => switchTab('trainTab');
+  }
+}
+
 function bindApp() {
   $('logoutBtn').addEventListener('click', async () => {
     await send('logout');
@@ -471,10 +524,7 @@ function bindApp() {
   bindManageAccordion();
   bindResponsiveLayout();
 
-  $('onboardingWorkoutBtn').addEventListener('click', () => {
-    switchTab('manageTab');
-    resetWorkoutForm();
-  });
+  $('onboardingActionBtn').addEventListener('click', () => $('onboardingActionBtn').onclick?.());
   $('activeWorkoutSelect').addEventListener('change', loadActiveWorkout);
   $('trainGymSelect').addEventListener('change', () => loadExercises('train'));
   $('trainGroupSelect').addEventListener('change', () => {
@@ -639,7 +689,6 @@ async function loadBootstrap() {
   fillSelect($('historyGroupSelect'), state.groups, 'Todos los grupos');
   fillSelect($('manageExerciseGroupSelect'), state.groups, 'Todos los grupos');
   fillSelect($('exerciseManagementForm').elements.muscle_group_id, state.groups, 'Elige grupo');
-  $('onboarding').classList.toggle('hidden', state.workouts.length > 0);
   $('gymsEnabledToggle').checked = state.gymsEnabled;
   syncGymVisibility();
 
@@ -647,6 +696,7 @@ async function loadBootstrap() {
   if (selectedTrainGym && [...$('trainGymSelect').options].some((option) => option.value === selectedTrainGym)) $('trainGymSelect').value = selectedTrainGym;
   if (selectedHistoryGym && [...$('historyGymSelect').options].some((option) => option.value === selectedHistoryGym)) $('historyGymSelect').value = selectedHistoryGym;
   await loadManageExercises();
+  renderOnboardingState(await loadOnboardingProgress());
   await loadExercises('history');
 
   if (state.workouts.length) {

@@ -16,14 +16,35 @@ const state = {
 };
 
 const DESKTOP_QUERY = '(min-width: 1024px)';
+const desktopMediaQuery = window.matchMedia(DESKTOP_QUERY);
+const MANAGEMENT_FORM_LAYOUTS = [
+  {
+    formId: 'exerciseManagementForm',
+    createSlotId: 'newExerciseFormSlot',
+    desktopEditorSlotId: 'desktopExerciseEditorSlot',
+    listId: 'manageExerciseList',
+  },
+  {
+    formId: 'workoutForm',
+    createSlotId: 'newWorkoutFormSlot',
+    desktopEditorSlotId: 'desktopWorkoutEditorSlot',
+    listId: 'workoutList',
+  },
+  {
+    formId: 'gymForm',
+    createSlotId: 'newGymFormSlot',
+    desktopEditorSlotId: 'desktopGymEditorSlot',
+    listId: 'gymList',
+  },
+];
 const $ = (id) => document.getElementById(id);
 
 function isDesktopLayout() {
-  return window.matchMedia(DESKTOP_QUERY).matches;
+  return desktopMediaQuery.matches;
 }
 
 function getDefaultTab() {
-  return isDesktopLayout() ? 'manageTab' : 'trainTab';
+  return 'trainTab';
 }
 
 function getDefaultManageSection() {
@@ -248,6 +269,7 @@ function bindApp() {
     button.addEventListener('click', () => switchTab(button.dataset.tab));
   });
   bindManageAccordion();
+  bindResponsiveLayout();
 
   $('onboardingWorkoutBtn').addEventListener('click', () => {
     switchTab('manageTab');
@@ -302,6 +324,42 @@ function bindManageAccordion() {
     button.addEventListener('click', () => toggleManageSection(button.dataset.manageToggle));
   });
   openManageSection(state.manageOpenSection);
+}
+
+function bindResponsiveLayout() {
+  if (desktopMediaQuery.addEventListener) {
+    desktopMediaQuery.addEventListener('change', syncResponsiveLayout);
+  } else {
+    desktopMediaQuery.addListener(syncResponsiveLayout);
+  }
+}
+
+function syncResponsiveLayout() {
+  if (isDesktopLayout() && $('manageTab').classList.contains('active')) {
+    openManageSection(state.manageOpenSection || 'exercises');
+  }
+  MANAGEMENT_FORM_LAYOUTS.forEach(moveManagementFormForLayout);
+}
+
+function moveManagementFormForLayout({ formId, createSlotId, desktopEditorSlotId, listId }) {
+  const form = $(formId);
+  if (!form || form.classList.contains('hidden')) return;
+
+  const list = $(listId);
+  const entityId = form.elements.id?.value || '';
+  clearManagementEditing(listId);
+
+  if (isDesktopLayout()) {
+    $(desktopEditorSlotId).appendChild(form);
+  } else if (entityId) {
+    const item = [...list.querySelectorAll('.item[data-entity-id]')].find((node) => node.dataset.entityId === String(entityId));
+    if (item) {
+      item.classList.add('is-editing');
+      item.appendChild(form);
+    }
+  } else {
+    $(createSlotId).appendChild(form);
+  }
 }
 
 function toggleManageSection(sectionId) {

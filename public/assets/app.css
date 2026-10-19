@@ -589,6 +589,7 @@ h3 {
 
 .training-browser {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
   padding: 18px 16px;
 }
@@ -1723,6 +1724,18 @@ details form {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
+
+.demo-invitation { margin: 20px 0; padding-bottom: 16px; border-bottom: 1px solid var(--color-tape-orange); }
+.demo-invitation button { width: 100%; }
+.demo-invitation p { margin-bottom: 0; }
+.demo-banner { padding: 16px; margin: 12px 0 20px; border: 1px solid var(--color-tape-orange); border-left-width: 4px; }
+.demo-banner p { margin: 6px 0 12px; font-size: 0.875rem; }
+.demo-banner .action-row { flex-wrap: wrap; }
+.catalog-scope { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.catalog-scope p { flex: 1 1 220px; margin: 0; }
+#workoutExerciseCheckboxes { max-height: 340px; overflow-y: auto; }
+#workoutExerciseCheckboxes label[hidden] { display: none; }
+@media (min-width: 1024px) { .demo-banner { margin-left: 0; } }
 
 @media (prefers-reduced-motion: reduce) {
   *,

@@ -1,5 +1,18 @@
 # Gym Tracker - Project Context
 
+## Actualización 2026-10-19: demo y entrenamiento flexible
+
+Esta sección sustituye las descripciones históricas de jerarquía obligatoria que aparecen más abajo.
+
+- El catálogo de ejercicios es independiente. Grupo muscular opcional y rutinas explícitas mediante `workout_exercises`.
+- Las marcas aceptan `workout_id = NULL`. Registrar un ejercicio externo nunca lo añade a una rutina.
+- Entrenar abre el catálogo completo; creación rápida sin grupo ni rutina y onboarding de ejercicio + marca.
+- API de rutinas: `exercise_ids`, ya no `muscle_group_ids`. Grupos y rutinas filtran de forma combinable.
+- Demo pública `/?demo=1`: SQLite en memoria y snapshots en sesión PHP; misma API, sin cuentas ni escrituras en MySQL. Requiere pdo_sqlite.
+- Backups JSON v3 con listas explícitas y valores nulos; importación compatible con v1/v2 y CSV sin grupo.
+- Migración incremental obligatoria antes de desplegar: `database/migrations/2026-10-19-flexible-training.sql`.
+- Guía de funcionamiento, pruebas y despliegue: `docs/DEMO_AND_FLEXIBLE_TRAINING.md`.
+
 ## Qué es
 
 Gym Tracker es una app web mobile-first para registrar marcas de gimnasio durante una sesión. La V1 está pensada para desplegarse en hosting clásico tipo IONOS con PHP/MySQL, sin framework pesado ni proceso de build.

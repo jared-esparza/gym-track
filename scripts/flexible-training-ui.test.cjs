@@ -1,0 +1,27 @@
+const fs = require('node:fs');
+const vm = require('node:vm');
+const assert = require('node:assert/strict');
+const nodes = new Map();
+const element = () => ({ value: '', innerHTML: '', textContent: '', options: [], dataset: {},
+  classList: { add() {}, remove() {}, toggle() {} }, setAttribute() {}, querySelectorAll: () => [] });
+const document = { getElementById(id) { if (!nodes.has(id)) nodes.set(id, element()); return nodes.get(id); } };
+let source = fs.readFileSync('public/assets/app.js', 'utf8').replace(/init\(\)\.catch\([\s\S]*?\n\}\);\s*$/, '');
+source += '\n;globalThis.subject = { state, exercisesUrl, groupName, renderOnboardingState, workoutIdForExercise };';
+const context = { document, window: { matchMedia: () => ({ matches: false }) }, URLSearchParams, console };
+vm.runInNewContext(source, context);
+const s = context.subject;
+assert.equal(s.exercisesUrl('train'), 'exercises');
+document.getElementById('activeWorkoutSelect').value = '2';
+s.state.catalogScope = 'workout';
+assert.match(s.exercisesUrl('train', '1'), /muscle_group_id=1/);
+assert.match(s.exercisesUrl('train', '1'), /workout_id=2/);
+s.state.catalogScope = 'all';
+assert.doesNotMatch(s.exercisesUrl('train', '1'), /workout_id/);
+s.state.activeWorkoutExerciseIds = [3];
+assert.equal(s.workoutIdForExercise(3), 2);
+assert.equal(s.workoutIdForExercise(4), null);
+assert.equal(s.groupName(null), 'Sin grupo');
+s.renderOnboardingState({ workouts: 0, exercises: 1, records: 0 });
+assert.equal(document.getElementById('onboardingActionBtn').textContent, 'Registrar marca');
+assert.doesNotMatch(document.getElementById('onboardingSteps').innerHTML, /Crea tu primer entrenamiento/);
+console.log('Flexible training UI: catalogue, combined filters, free marks and onboarding passed.');

@@ -27,6 +27,10 @@
           </div>
         </div>
         <div id="authMessage" class="notice hidden"></div>
+        <div class="demo-invitation">
+          <button type="button" id="tryDemoBtn" class="secondary">Probar demo sin registrarme</button>
+          <p class="muted">Explora con datos de ejemplo y prueba todas las funciones. Los cambios son temporales.</p>
+        </div>
 
         <form id="loginForm" class="stack">
           <h2>Entrar</h2>
@@ -101,6 +105,14 @@
       </header>
 
       <section id="globalMessage" class="notice global-feedback hidden" aria-live="polite" aria-atomic="true"></section>
+      <section id="demoBanner" class="demo-banner hidden" aria-label="Modo demo">
+        <div><strong>Demo · cambios temporales</strong><p>Tus pruebas solo se guardan durante esta sesión. Al crear una cuenta empezarás con tu cuaderno vacío.</p></div>
+        <div class="action-row">
+          <button id="resetDemoBtn" type="button" class="secondary">Reiniciar demo</button>
+          <button id="demoRegisterBtn" type="button" class="secondary">Crear cuenta</button>
+          <button id="exitDemoBtn" type="button" class="ghost">Salir</button>
+        </div>
+      </section>
 
       <section id="trainTab" class="screen active">
         <div id="onboarding" class="panel hidden">
@@ -112,7 +124,7 @@
             </div>
           </div>
           <ol id="onboardingSteps" class="onboarding-steps"></ol>
-          <button type="button" id="onboardingActionBtn">Crear entrenamiento</button>
+          <button type="button" id="onboardingActionBtn">Añadir ejercicio</button>
         </div>
 
         <form id="activeWorkoutForm" class="session-context">
@@ -124,15 +136,19 @@
             <span class="session-status"><i aria-hidden="true"></i> En curso</span>
           </div>
           <div class="session-context__controls">
-            <label>Entrenamiento<select id="activeWorkoutSelect" required></select></label>
+            <label>Entrenamiento (opcional)<select id="activeWorkoutSelect"></select></label>
             <label id="trainGymField" class="hidden">Gimnasio<select id="trainGymSelect"></select></label>
           </div>
           <div class="training-browser">
+            <div class="catalog-scope">
+              <p id="catalogScopeHint" class="muted"></p>
+              <button id="allExercisesBtn" type="button" class="secondary hidden">Todos los ejercicios</button>
+            </div>
             <div>
               <span class="field-label">Grupo muscular</span>
               <div id="trainingGroupFilters" class="training-group-filters" role="group" aria-label="Filtrar por grupo muscular"></div>
               <label class="visually-hidden" for="trainGroupSelect">Grupo muscular</label>
-              <select id="trainGroupSelect" class="visually-hidden" required></select>
+              <select id="trainGroupSelect" class="visually-hidden"></select>
             </div>
             <label class="training-search" for="trainingExerciseSearch">
               <span>Buscar ejercicio</span>
@@ -141,13 +157,14 @@
             <label class="visually-hidden" for="trainExerciseSelect">Ejercicio</label>
             <select id="trainExerciseSelect" class="visually-hidden" required></select>
             <div id="trainingExerciseList" class="training-exercise-list" aria-live="polite"></div>
-            <button type="button" id="showCreateExerciseBtn" class="text-action">+ Crear ejercicio en este grupo</button>
+            <button type="button" id="showCreateExerciseBtn" class="text-action">+ Crear ejercicio</button>
           </div>
         </form>
 
         <form id="quickExerciseForm" class="panel stack inline-editor hidden">
           <h3>Nuevo ejercicio</h3>
           <label>Nombre<input name="name" required maxlength="140"></label>
+          <label>Grupo muscular (opcional)<select name="muscle_group_id"></select></label>
           <label>Tipo de marca
             <select name="metric_type" required>
               <option value="kg">kg</option>
@@ -167,6 +184,7 @@
             <div>
               <p class="eyebrow">Ejercicio seleccionado</p>
               <h2 id="trainingExerciseName">Ejercicio</h2>
+              <p id="recordWorkoutContext" class="muted"></p>
             </div>
             <span id="recordMetricBadge" class="metric-badge">kg</span>
           </header>
@@ -286,7 +304,7 @@
             <div>
               <p class="eyebrow">Rutinas</p>
               <h2><button class="manage-toggle" type="button" data-manage-toggle="workouts" aria-expanded="false" aria-controls="manageWorkoutsPanel">Entrenamientos</button></h2>
-              <p class="muted">Rutinas y grupos musculares disponibles al entrenar.</p>
+              <p class="muted">Listas opcionales de ejercicios para organizar tus rutinas.</p>
             </div>
             <button type="button" id="newWorkoutBtn" class="secondary compact">Nuevo</button>
           </div>
@@ -356,7 +374,7 @@
             </div>
             <div class="desktop-editor-empty hidden" data-editor-empty="workouts">
               <span class="label">Editor de entrenamientos</span>
-              <p class="muted">Elige un entrenamiento para editar sus grupos o crea una rutina nueva.</p>
+              <p class="muted">Elige un entrenamiento para editar su lista de ejercicios o crea uno nuevo.</p>
             </div>
             <div class="desktop-editor-empty hidden" data-editor-empty="gyms">
               <span class="label">Editor de gimnasios</span>
@@ -375,7 +393,7 @@
             <input name="id" type="hidden">
             <input name="record_count" type="hidden" value="0">
             <label>Nombre<input name="name" required maxlength="140"></label>
-            <label>Grupo muscular<select name="muscle_group_id" required></select></label>
+            <label>Grupo muscular (opcional)<select name="muscle_group_id"></select></label>
             <label>Tipo de marca
               <select name="metric_type" required>
                 <option value="kg">kg</option>
@@ -409,7 +427,9 @@
             <h3 id="workoutFormTitle">Nuevo entrenamiento</h3>
             <input name="id" type="hidden">
             <label>Nombre<input name="name" required maxlength="120" placeholder="Ej. Push, Pull, Pierna"></label>
-            <fieldset id="groupCheckboxes"></fieldset>
+            <label>Buscar en el catálogo<input type="search" id="workoutExerciseSearch" placeholder="Buscar ejercicio…"></label>
+            <p class="muted">Selecciona los ejercicios de esta lista. Puedes dejarla vacía y completarla después.</p>
+            <fieldset id="workoutExerciseCheckboxes"></fieldset>
             <div class="row">
               <button type="submit">Guardar</button>
               <button type="button" id="cancelWorkoutBtn" class="ghost">Cancelar</button>

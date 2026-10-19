@@ -6,7 +6,7 @@ function element() {
   const classes = new Set();
   return {
     value: '', dataset: {}, innerHTML: '', textContent: '', listeners: {}, options: [],
-    elements: { id: { value: '' } },
+    elements: { id: { value: '' }, name: { value: '', focus() {} }, muscle_group_id: { value: '' } },
     classList: {
       add(name) { classes.add(name); },
       remove(name) { classes.delete(name); },
@@ -49,7 +49,7 @@ function harness() {
     context.switchTab = () => {};
     context.openManageSection = () => {};
     let opened = 0;
-    context.resetWorkoutForm = () => { opened++; };
+    get('quickExerciseForm').elements.name.focus = () => { opened++; };
     api.bindApp();
     api.renderOnboardingState({ workouts: 0, exercises: 0, records: 0 });
     get('onboardingActionBtn').click();
@@ -84,7 +84,10 @@ function harness() {
     context.showMessage = (message, tone) => { if (tone === 'error') errors.push(message); };
     context.announce = () => {};
     context.openConfirmDialog = async () => true;
-    context.loadExercises = async () => {};
+    const refreshedContexts = [];
+    context.loadExercises = async (where) => { refreshedContexts.push(where); };
+    context.loadActiveWorkout = async () => {};
+    context.refreshWorkoutExerciseChoices = async () => {};
     context.selectTrainingExercise = async () => {};
     context.loadExerciseSummary = async () => {};
     context.loadManageExercises = async () => {};
@@ -104,6 +107,7 @@ function harness() {
     if (operation.startsWith('delete')) await api[operation](1);
     else await api[operation]({ preventDefault() {}, currentTarget: form });
     assert.deepEqual(errors, [], `${operation} should finish its save/delete flow`);
+    if (operation === 'createExercise') assert(refreshedContexts.includes('history'), 'new exercise must be immediately available in history');
     assert.equal(progressReads, 1, `${operation} must refresh onboarding independently of the management group filter`);
   }
 })().catch((error) => { console.error(error); process.exitCode = 1; });

@@ -38,7 +38,10 @@ Contiene clases PHP pequeñas y reutilizables. No define pantallas ni rutas por 
   - Es el sitio correcto para revisar cómo se resuelven valores como `DB_HOST`, `APP_ENV` o SMTP.
 
 - `Database.php`
-  - Crea la conexión PDO a MySQL/MariaDB.
+  - Crea la conexión PDO a MySQL/MariaDB, o la proyección SQLite de la sesión demo.
+
+- `DemoSession.php`
+  - Inicializa ejemplos, restaura snapshots y conserva datos temporales de cada visitante sin acceder a MySQL.
   - Si hay problemas de conexión o charset, se revisa aquí.
 
 - `Auth.php`

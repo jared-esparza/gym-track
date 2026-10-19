@@ -31,6 +31,9 @@ final class Auth
     public static function user(): ?array
     {
         self::startSession();
+        if (!empty($_SESSION['demo'])) {
+            return ['id' => 1, 'email' => 'Visitante demo', 'email_verified_at' => null, 'is_demo' => true];
+        }
         $id = $_SESSION['user_id'] ?? null;
         if (!$id) {
             return null;

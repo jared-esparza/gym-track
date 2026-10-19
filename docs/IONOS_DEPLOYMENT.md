@@ -119,7 +119,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
-          extensions: mbstring, pdo_mysql
+          extensions: mbstring, pdo_mysql, pdo_sqlite
           coverage: none
 
       - name: Setup Node
@@ -228,3 +228,7 @@ El backup JSON de la app sirve como apoyo funcional para recuperar datos de usua
 - Mantener `SESSION_SECURE_COOKIE=1`.
 - Usar contrasenas distintas para SFTP, MySQL y SMTP.
 - Rotar secrets de GitHub si alguien deja de tener acceso al proyecto.
+
+## Demo y cambio de modelo (2026-10-19)
+
+Antes de desplegar esta versión, copia de seguridad y ejecución única de `database/migrations/2026-10-19-flexible-training.sql` sobre la instalación existente. La demo pública requiere la extensión PHP `pdo_sqlite` y sesiones PHP con limpieza de datos caducados configurada por el hosting. Usa `/?demo=1` como enlace del portfolio. Consulta `DEMO_AND_FLEXIBLE_TRAINING.md` para pruebas y verificación.

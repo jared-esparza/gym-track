@@ -5,6 +5,7 @@ declare(strict_types=1);
 use GymTracker\Auth;
 use GymTracker\Config;
 use GymTracker\Database;
+use GymTracker\DemoSession;
 use GymTracker\Mailer;
 use GymTracker\Request;
 use GymTracker\RegistrationException;
@@ -16,7 +17,6 @@ use GymTracker\Security;
 
 require dirname(__DIR__) . '/app/bootstrap.php';
 
-$pdo = Database::pdo();
 $action = $_GET['action'] ?? '';
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
@@ -25,6 +25,19 @@ try {
         Response::error('Token CSRF invÃ¡lido', 403);
     }
 
+    if (in_array($action, ['demo-start', 'demo-reset'], true)) {
+        postOnly($method);
+        if (!empty($_SESSION['user_id'])) Response::error('Cierra tu sesión antes de iniciar la demo', 409);
+        if (!in_array('sqlite', PDO::getAvailableDrivers(), true)) Response::error('La demo no está disponible en este servidor', 503);
+        if ($action === 'demo-reset' && empty($_SESSION['demo'])) Response::error('La demo ha caducado. Inicia otra prueba.', 401);
+        session_regenerate_id(true);
+        DemoSession::start($_SESSION);
+        Response::json(['ok' => true, 'user' => Auth::user(), 'csrf_token' => Security::csrfToken($_SESSION)]);
+    }
+    // Auth actions always use the real account database, never the demo projection.
+    if (!empty($_SESSION['demo']) && in_array($action, ['register', 'login', 'forgot-password', 'reset-password', 'verify-email'], true)) {
+        Response::error('Sal de la demo para acceder a tu cuenta', 409);
+    }
     match ($action) {
         'me' => me(),
         'register' => postOnly($method) && register(),
@@ -51,6 +64,8 @@ try {
         default => Response::error('Acción no encontrada', 404),
     };
 } catch (Throwable $e) {
+    if (isset($pdo) && $pdo->inTransaction()) $pdo->rollBack();
+    if ($e instanceof PDOException && (str_contains($e->getMessage(), 'UNIQUE constraint') || (int) ($e->errorInfo[1] ?? 0) === 1062)) Response::error('Ya existe un elemento con ese nombre y clasificación', 409);
     $isDev = Config::get('APP_ENV', 'production') === 'local';
     Response::error($isDev ? $e->getMessage() : 'Error interno', 500);
 }
@@ -345,16 +360,13 @@ function workouts(string $method): never
 
     $data = Request::input();
     $name = textParam($data, 'name', 120);
-    $groupIds = array_values(array_unique(array_map('intval', $data['muscle_group_ids'] ?? [])));
-    if (!$groupIds) {
-        Response::error('Selecciona al menos un grupo muscular');
-    }
+    $exerciseIds = workoutExerciseIds($data, (int) $user['id']);
 
     $pdo->beginTransaction();
     $stmt = $pdo->prepare('INSERT INTO workouts (user_id, name) VALUES (?, ?)');
     $stmt->execute([$user['id'], $name]);
     $workoutId = (int) $pdo->lastInsertId();
-    syncWorkoutGroups($workoutId, $groupIds);
+    syncWorkoutExercises($workoutId, $exerciseIds);
     $pdo->commit();
 
     Response::json(['ok' => true, 'id' => $workoutId]);
@@ -372,32 +384,23 @@ function workout(string $method): never
         $stmt = $pdo->prepare('SELECT id, name FROM workouts WHERE id = ? AND user_id = ?');
         $stmt->execute([$id, $user['id']]);
         $workout = $stmt->fetch();
-        $stmt = $pdo->prepare('SELECT muscle_group_id FROM workout_muscle_groups WHERE workout_id = ?');
+        $stmt = $pdo->prepare('SELECT exercise_id FROM workout_exercises WHERE workout_id = ?');
         $stmt->execute([$id]);
-        Response::json(['ok' => true, 'workout' => $workout, 'muscle_group_ids' => array_map('intval', array_column($stmt->fetchAll(), 'muscle_group_id'))]);
+        Response::json(['ok' => true, 'workout' => $workout, 'exercise_ids' => array_map('intval', array_column($stmt->fetchAll(), 'exercise_id'))]);
     }
 
     if ($method === 'POST') {
         $name = textParam($data, 'name', 120);
-        $groupIds = array_values(array_unique(array_map('intval', $data['muscle_group_ids'] ?? [])));
-        if (!$groupIds) {
-            Response::error('Selecciona al menos un grupo muscular');
-        }
+        $exerciseIds = workoutExerciseIds($data, (int) $user['id']);
         $pdo->beginTransaction();
         $stmt = $pdo->prepare('UPDATE workouts SET name = ? WHERE id = ? AND user_id = ?');
         $stmt->execute([$name, $id, $user['id']]);
-        syncWorkoutGroups($id, $groupIds);
+        syncWorkoutExercises($id, $exerciseIds);
         $pdo->commit();
         Response::json(['ok' => true]);
     }
 
     if ($method === 'DELETE') {
-        $stmt = $pdo->prepare('SELECT COUNT(*) FROM records WHERE workout_id = ? AND user_id = ?');
-        $stmt->execute([$id, $user['id']]);
-        if ((int) $stmt->fetchColumn() > 0) {
-            Response::error('No se puede eliminar un entrenamiento con registros asociados', 409);
-        }
-
         $stmt = $pdo->prepare('DELETE FROM workouts WHERE id = ? AND user_id = ?');
         $stmt->execute([$id, $user['id']]);
         Response::json(['ok' => true]);
@@ -406,16 +409,40 @@ function workout(string $method): never
     Response::error('Método no permitido', 405);
 }
 
-function syncWorkoutGroups(int $workoutId, array $groupIds): void
+function workoutExerciseIds(array $data, int $userId): array
+{
+    if (!is_array($data['exercise_ids'] ?? [])) Response::error('Lista de ejercicios inválida');
+    $ids = [];
+    foreach ($data['exercise_ids'] ?? [] as $value) {
+        $id = intParam(['id' => $value], 'id');
+        assertExerciseOwner($id, $userId);
+        $ids[] = $id;
+    }
+    return array_values(array_unique($ids));
+}
+
+function syncWorkoutExercises(int $workoutId, array $exerciseIds): void
 {
     $pdo = Database::pdo();
-    $pdo->prepare('DELETE FROM workout_muscle_groups WHERE workout_id = ?')->execute([$workoutId]);
-    $stmt = $pdo->prepare('INSERT INTO workout_muscle_groups (workout_id, muscle_group_id) VALUES (?, ?)');
-    foreach ($groupIds as $groupId) {
-        if ($groupId > 0) {
-            $stmt->execute([$workoutId, $groupId]);
-        }
+    $pdo->prepare('DELETE FROM workout_exercises WHERE workout_id = ?')->execute([$workoutId]);
+    $stmt = $pdo->prepare('INSERT INTO workout_exercises (workout_id, exercise_id) VALUES (?, ?)');
+    foreach ($exerciseIds as $id) $stmt->execute([$workoutId, $id]);
+}
+
+function optionalGroupId(array $data): ?int
+{
+    $id = optionalId($data, 'muscle_group_id');
+    if ($id !== null) {
+        $stmt = Database::pdo()->prepare('SELECT id FROM muscle_groups WHERE id = ?');
+        $stmt->execute([$id]);
+        if (!$stmt->fetchColumn()) Response::error('Grupo muscular desconocido');
     }
+    return $id;
+}
+
+function optionalId(array $data, string $key): ?int
+{
+    return !isset($data[$key]) || $data[$key] === '' ? null : intParam($data, $key);
 }
 
 function gymsEnabled(int $userId): bool
@@ -557,9 +584,12 @@ function exercises(): never
     if ($groupId && $groupId > 0) {
         $where .= ' AND e.muscle_group_id = ?';
         $params[] = (int) $groupId;
-    } elseif ($workoutId && $workoutId > 0) {
+    } elseif (($_GET['muscle_group_id'] ?? '') === 'none') {
+        $where .= ' AND e.muscle_group_id IS NULL';
+    }
+    if ($workoutId && $workoutId > 0) {
         assertWorkoutOwner((int) $workoutId, (int) $user['id']);
-        $join = 'JOIN workout_muscle_groups wmg ON wmg.muscle_group_id = e.muscle_group_id AND wmg.workout_id = ?';
+        $join = 'JOIN workout_exercises we ON we.exercise_id = e.id AND we.workout_id = ?';
         array_unshift($params, (int) $workoutId);
     }
     if (!empty($scope['gym_id'])) {
@@ -575,7 +605,7 @@ function exercises(): never
           e.metric_type,
           e.notes,
           (SELECT COUNT(*) FROM records r WHERE r.exercise_id = e.id AND r.user_id = e.user_id) AS record_count,
-          (SELECT GROUP_CONCAT(eg.gym_id ORDER BY eg.gym_id) FROM exercise_gyms eg WHERE eg.exercise_id = e.id) AS gym_ids
+          (SELECT GROUP_CONCAT(eg.gym_id) FROM exercise_gyms eg WHERE eg.exercise_id = e.id) AS gym_ids
         FROM exercises e
         {$join}
         WHERE {$where}
@@ -596,7 +626,7 @@ function exercise(string $method): never
     $pdo = Database::pdo();
 
     if ($method === 'POST' && empty($data['id'])) {
-        $groupId = intParam($data, 'muscle_group_id');
+        $groupId = optionalGroupId($data);
         $name = textParam($data, 'name', 140);
         $metric = metricParam($data);
         $notes = textParam($data, 'notes', 2000, false);
@@ -620,7 +650,7 @@ function exercise(string $method): never
 
     if ($method === 'POST') {
         if (array_key_exists('name', $data) || array_key_exists('muscle_group_id', $data) || array_key_exists('metric_type', $data)) {
-            $groupId = intParam($data, 'muscle_group_id');
+            $groupId = optionalGroupId($data);
             $name = textParam($data, 'name', 140);
             $metric = metricParam($data);
             $notes = textParam($data, 'notes', 2000, false);
@@ -690,9 +720,14 @@ function records(string $method): never
 
     if ($method === 'POST' && empty($data['id'])) {
         $exerciseId = intParam($data, 'exercise_id');
-        $workoutId = intParam($data, 'workout_id');
+        $workoutId = optionalId($data, 'workout_id');
         assertExerciseOwner($exerciseId, (int) $user['id']);
-        assertWorkoutOwner($workoutId, (int) $user['id']);
+        if ($workoutId !== null) {
+            assertWorkoutOwner($workoutId, (int) $user['id']);
+            $membership = $pdo->prepare('SELECT 1 FROM workout_exercises WHERE workout_id = ? AND exercise_id = ?');
+            $membership->execute([$workoutId, $exerciseId]);
+            if (!$membership->fetchColumn()) Response::error('El ejercicio no pertenece al entrenamiento seleccionado');
+        }
         $gymId = recordGymIdForCreate((int) $user['id'], $data);
         assertExerciseAvailableInGym($exerciseId, $gymId);
         $value = numericValue($data);
@@ -739,7 +774,7 @@ function history(): never
     $params = [$user['id'], $exerciseId];
     applyGymScope($where, $params, $scope, 'r.gym_id');
 
-    $stmt = $pdo->prepare("SELECT r.id, r.gym_id, g.name AS gym_name, r.value, r.metric_type, r.note, r.recorded_at, w.name AS workout_name FROM records r JOIN workouts w ON w.id = r.workout_id LEFT JOIN gyms g ON g.id = r.gym_id WHERE {$where} ORDER BY r.recorded_at DESC, r.id DESC");
+    $stmt = $pdo->prepare("SELECT r.id, r.gym_id, g.name AS gym_name, r.value, r.metric_type, r.note, r.recorded_at, w.name AS workout_name FROM records r LEFT JOIN workouts w ON w.id = r.workout_id LEFT JOIN gyms g ON g.id = r.gym_id WHERE {$where} ORDER BY r.recorded_at DESC, r.id DESC");
     $stmt->execute($params);
     $records = $stmt->fetchAll();
 
@@ -761,7 +796,7 @@ function exportData(): never
     if ($format === 'json') {
         downloadJson('gym-tracker-backup.json', [
             'schema' => 'gym-tracker-export',
-            'version' => 2,
+            'version' => 3,
             'exported_at' => gmdate('c'),
             'gyms' => exportGyms($userId),
             'workouts' => exportWorkouts($userId),
@@ -779,7 +814,7 @@ function exportData(): never
         downloadCsv('exercises.csv', ['muscle_group', 'name', 'metric_type', 'notes', 'gyms'], exportExerciseCsvRows($userId));
     }
     if ($type === 'workouts') {
-        downloadCsv('workouts.csv', ['name', 'muscle_groups'], exportWorkoutCsvRows($userId));
+        downloadCsv('workouts.csv', ['name', 'exercises'], exportWorkoutCsvRows($userId));
     }
     if ($type === 'records') {
         downloadCsv('records.csv', ['muscle_group', 'exercise', 'workout', 'gym', 'value', 'metric_type', 'note', 'recorded_at'], exportRecordCsvRows($userId));
@@ -790,25 +825,15 @@ function exportData(): never
 
 function exportWorkouts(int $userId): array
 {
-    $stmt = Database::pdo()->prepare("
-        SELECT w.id, w.name, mg.name AS muscle_group
-        FROM workouts w
-        LEFT JOIN workout_muscle_groups wmg ON wmg.workout_id = w.id
-        LEFT JOIN muscle_groups mg ON mg.id = wmg.muscle_group_id
-        WHERE w.user_id = ?
-        ORDER BY w.name, mg.sort_order
-    ");
+    $stmt = Database::pdo()->prepare('SELECT id, name FROM workouts WHERE user_id = ? ORDER BY name');
     $stmt->execute([$userId]);
     $workouts = [];
+    $members = Database::pdo()->prepare('SELECT e.name, mg.name AS muscle_group FROM workout_exercises we JOIN exercises e ON e.id = we.exercise_id LEFT JOIN muscle_groups mg ON mg.id = e.muscle_group_id WHERE we.workout_id = ? AND e.user_id = ? ORDER BY e.id');
     foreach ($stmt->fetchAll() as $row) {
-        $name = (string) $row['name'];
-        $workouts[$name] ??= ['name' => $name, 'muscle_groups' => []];
-        if ($row['muscle_group']) {
-            $workouts[$name]['muscle_groups'][] = $row['muscle_group'];
-        }
+        $members->execute([$row['id'], $userId]);
+        $workouts[] = ['name' => $row['name'], 'exercises' => $members->fetchAll()];
     }
-
-    return array_values($workouts);
+    return $workouts;
 }
 
 function exportGyms(int $userId): array
@@ -823,7 +848,7 @@ function exportExercises(int $userId): array
     $stmt = Database::pdo()->prepare("
         SELECT mg.name AS muscle_group, e.name, e.metric_type, e.notes, g.name AS gym
         FROM exercises e
-        JOIN muscle_groups mg ON mg.id = e.muscle_group_id
+        LEFT JOIN muscle_groups mg ON mg.id = e.muscle_group_id
         LEFT JOIN exercise_gyms eg ON eg.exercise_id = e.id
         LEFT JOIN gyms g ON g.id = eg.gym_id
         WHERE e.user_id = ?
@@ -854,8 +879,8 @@ function exportRecords(int $userId): array
         SELECT mg.name AS muscle_group, e.name AS exercise, w.name AS workout, g.name AS gym, r.value, r.metric_type, r.note, r.recorded_at
         FROM records r
         JOIN exercises e ON e.id = r.exercise_id
-        JOIN muscle_groups mg ON mg.id = e.muscle_group_id
-        JOIN workouts w ON w.id = r.workout_id
+        LEFT JOIN muscle_groups mg ON mg.id = e.muscle_group_id
+        LEFT JOIN workouts w ON w.id = r.workout_id
         LEFT JOIN gyms g ON g.id = r.gym_id
         WHERE r.user_id = ?
         ORDER BY r.recorded_at, r.id
@@ -879,7 +904,7 @@ function exportWorkoutCsvRows(int $userId): array
 {
     return array_map(static fn (array $row): array => [
         $row['name'],
-        implode('|', $row['muscle_groups']),
+        implode('|', array_column($row['exercises'], 'name')),
     ], exportWorkouts($userId));
 }
 
@@ -1020,85 +1045,6 @@ function previewImportPayload(int $userId, string $content, string $filename): a
     return ImportService::previewExerciseCsv($content, $context);
 }
 
-function previewJsonImport(int $userId, string $content): array
-{
-    $data = json_decode($content, true);
-    if (!is_array($data) || ($data['schema'] ?? '') !== 'gym-tracker-export' || (int) ($data['version'] ?? 0) !== 1) {
-        return importResult([], ['JSON de backup no reconocido'], []);
-    }
-
-    $plan = ['workouts' => [], 'exercises' => [], 'records' => []];
-    $errors = [];
-    $warnings = [];
-    $context = importContext($userId);
-    foreach (($data['workouts'] ?? []) as $index => $row) {
-        $workout = normalizeWorkoutImport($row, $context, $index + 1, $errors);
-        if ($workout) {
-            $plan['workouts'][] = $workout;
-            $context['workouts'][normalizeKey($workout['name'])] = ['id' => $workout['id'], 'name' => $workout['name']];
-        }
-    }
-    foreach (($data['exercises'] ?? []) as $index => $row) {
-        $exercise = normalizeExerciseImport($row, $context, $index + 1, $errors);
-        if ($exercise) {
-            $plan['exercises'][] = $exercise;
-            $key = exerciseImportKey($exercise['muscle_group_id'], $exercise['name']);
-            $context['exercises'][$key] = [
-                'id' => $exercise['id'],
-                'name' => $exercise['name'],
-                'metric_type' => $exercise['metric_type'],
-                'record_count' => $exercise['record_count'],
-            ];
-        }
-    }
-    foreach (($data['records'] ?? []) as $index => $row) {
-        $record = normalizeRecordImport($row, $context, $index + 1, $errors);
-        if ($record) {
-            $plan['records'][] = $record;
-        }
-    }
-
-    return importResult($plan, $errors, $warnings);
-}
-
-function previewExerciseCsvImport(int $userId, string $content): array
-{
-    $lines = preg_split('/\r\n|\r|\n/', trim($content));
-    if (!$lines || trim($lines[0]) === '') {
-        return importResult([], ['CSV vacÃ­o'], []);
-    }
-
-    $delimiter = substr_count($lines[0], ';') > substr_count($lines[0], ',') ? ';' : ',';
-    $header = str_getcsv(array_shift($lines), $delimiter);
-    $expected = ['muscle_group', 'name', 'metric_type', 'notes'];
-    if ($header !== $expected) {
-        return importResult([], ['Cabecera CSV inválida. Usa: muscle_group,name,metric_type,notes,gyms'], []);
-    }
-
-    $context = importContext($userId);
-    $plan = ['workouts' => [], 'exercises' => [], 'records' => []];
-    $errors = [];
-    foreach ($lines as $index => $line) {
-        if (trim($line) === '') {
-            continue;
-        }
-        $values = str_getcsv($line, $delimiter);
-        $row = array_combine($expected, array_pad($values, count($expected), ''));
-        $exercise = normalizeExerciseImport($row, $context, $index + 2, $errors);
-        if ($exercise) {
-            $plan['exercises'][] = $exercise;
-            $context['exercises'][exerciseImportKey($exercise['muscle_group_id'], $exercise['name'])] = [
-                'id' => $exercise['id'],
-                'name' => $exercise['name'],
-                'metric_type' => $exercise['metric_type'],
-                'record_count' => $exercise['record_count'],
-            ];
-        }
-    }
-
-    return importResult($plan, $errors, []);
-}
-
 function importContext(int $userId): array
 {
     $pdo = Database::pdo();
@@ -1136,117 +1082,6 @@ function importContext(int $userId): array
     return ['groups' => $groups, 'workouts' => $workouts, 'exercises' => $exercises, 'gyms' => $gyms];
 }
 
-function normalizeWorkoutImport(array $row, array $context, int $rowNumber, array &$errors): ?array
-{
-    $name = trim((string) ($row['name'] ?? ''));
-    if ($name === '' || mb_strlen($name) > 120) {
-        $errors[] = "Fila {$rowNumber}: entrenamiento sin nombre vÃ¡lido";
-        return null;
-    }
-
-    $groupNames = $row['muscle_groups'] ?? [];
-    if (!is_array($groupNames)) {
-        $groupNames = array_filter(array_map('trim', explode('|', (string) $groupNames)));
-    }
-    $groupIds = [];
-    foreach ($groupNames as $groupName) {
-        $group = $context['groups'][normalizeKey((string) $groupName)] ?? null;
-        if (!$group) {
-            $errors[] = "Fila {$rowNumber}: grupo muscular desconocido {$groupName}";
-            continue;
-        }
-        $groupIds[] = $group['id'];
-    }
-    if (!$groupIds) {
-        $errors[] = "Fila {$rowNumber}: entrenamiento sin grupos musculares";
-        return null;
-    }
-
-    $existing = $context['workouts'][normalizeKey($name)] ?? null;
-    if ($existing && !$existing['id']) {
-        return null;
-    }
-    return ['id' => $existing['id'] ?? null, 'name' => mb_substr($name, 0, 120), 'muscle_group_ids' => array_values(array_unique($groupIds))];
-}
-
-function normalizeExerciseImport(array $row, array $context, int $rowNumber, array &$errors): ?array
-{
-    $groupName = trim((string) ($row['muscle_group'] ?? ''));
-    $name = trim((string) ($row['name'] ?? ''));
-    $metric = trim((string) ($row['metric_type'] ?? ''));
-    $notes = trim((string) ($row['notes'] ?? ''));
-    $group = $context['groups'][normalizeKey($groupName)] ?? null;
-
-    if (!$group) {
-        $errors[] = "Fila {$rowNumber}: grupo muscular desconocido {$groupName}";
-        return null;
-    }
-    if ($name === '' || mb_strlen($name) > 140) {
-        $errors[] = "Fila {$rowNumber}: ejercicio sin nombre vÃ¡lido";
-        return null;
-    }
-    if (!in_array($metric, ['kg', 'reps', 'min', 'km'], true)) {
-        $errors[] = "Fila {$rowNumber}: tipo de marca invÃ¡lido";
-        return null;
-    }
-
-    $existing = $context['exercises'][exerciseImportKey($group['id'], $name)] ?? null;
-    if ($existing && !$existing['id']) {
-        return null;
-    }
-    if ($existing && $existing['record_count'] > 0 && $existing['metric_type'] !== $metric) {
-        $errors[] = "Fila {$rowNumber}: no se puede cambiar el tipo de marca de {$name} porque tiene registros";
-        return null;
-    }
-
-    return [
-        'id' => $existing['id'] ?? null,
-        'record_count' => $existing['record_count'] ?? 0,
-        'muscle_group_id' => $group['id'],
-        'muscle_group' => $group['name'],
-        'name' => mb_substr($name, 0, 140),
-        'metric_type' => $metric,
-        'notes' => mb_substr($notes, 0, 2000),
-    ];
-}
-
-function normalizeRecordImport(array $row, array $context, int $rowNumber, array &$errors): ?array
-{
-    $group = $context['groups'][normalizeKey((string) ($row['muscle_group'] ?? ''))] ?? null;
-    $workout = $context['workouts'][normalizeKey((string) ($row['workout'] ?? ''))] ?? null;
-    $exerciseName = trim((string) ($row['exercise'] ?? ''));
-    if (!$group || !$workout || $exerciseName === '') {
-        $errors[] = "Fila {$rowNumber}: registro con ejercicio, grupo o entrenamiento no resoluble";
-        return null;
-    }
-
-    $exercise = $context['exercises'][exerciseImportKey($group['id'], $exerciseName)] ?? null;
-    if (!$exercise) {
-        $errors[] = "Fila {$rowNumber}: ejercicio no encontrado para el registro";
-        return null;
-    }
-
-    $value = str_replace(',', '.', trim((string) ($row['value'] ?? '')));
-    $metric = trim((string) ($row['metric_type'] ?? ''));
-    $recordedAt = trim((string) ($row['recorded_at'] ?? ''));
-    if (!is_numeric($value) || (float) $value < 0 || $metric !== $exercise['metric_type'] || strtotime($recordedAt) === false) {
-        $errors[] = "Fila {$rowNumber}: registro con marca, tipo o fecha invÃ¡lida";
-        return null;
-    }
-
-    return [
-        'exercise_id' => $exercise['id'],
-        'exercise_name' => $exerciseName,
-        'muscle_group_id' => $group['id'],
-        'workout_id' => $workout['id'],
-        'workout_name' => $workout['name'],
-        'value' => number_format((float) $value, 2, '.', ''),
-        'metric_type' => $metric,
-        'note' => mb_substr(trim((string) ($row['note'] ?? '')), 0, 2000),
-        'recorded_at' => date('Y-m-d H:i:s', strtotime($recordedAt)),
-    ];
-}
-
 function importResult(array $plan, array $errors, array $warnings): array
 {
     $summary = [
@@ -1273,7 +1108,7 @@ function applyImportPlan(int $userId, array $plan): array
             }
         }
         foreach ($plan['workouts'] ?? [] as $workout) {
-            $workoutId = ensureWorkout($userId, $workout['name'], $workout['muscle_group_ids']);
+            $workoutId = ensureWorkout($userId, $workout['name']);
             if (!$workout['id']) {
                 $summary['workouts']++;
             }
@@ -1282,6 +1117,30 @@ function applyImportPlan(int $userId, array $plan): array
         foreach ($plan['exercises'] ?? [] as $exercise) {
             ensureExercise($userId, $exercise);
             $summary['exercises']++;
+        }
+        foreach ($plan['workouts'] ?? [] as $workout) {
+            $workoutId = ensureWorkout($userId, $workout['name']);
+            if ($workout['exercises'] === null) {
+                $groupIds = $workout['muscle_group_ids'];
+                if (!$groupIds) continue;
+                $query = $pdo->prepare('SELECT id FROM exercises WHERE user_id = ? AND muscle_group_id IN (' . implode(',', array_fill(0, count($groupIds), '?')) . ')');
+                $query->execute([$userId, ...$groupIds]);
+                $ids = array_map('intval', array_column($query->fetchAll(), 'id'));
+            } else {
+                $ids = [];
+                foreach ($workout['exercises'] as $reference) {
+                    $group = trim((string) ($reference['muscle_group'] ?? ''));
+                    $query = $pdo->prepare("SELECT e.id FROM exercises e LEFT JOIN muscle_groups mg ON mg.id = e.muscle_group_id WHERE e.user_id = ? AND e.name = ? AND COALESCE(mg.name, '') = ?");
+                    $query->execute([$userId, $reference['name'], $group]);
+                    $id = $query->fetchColumn();
+                    if (!$id) throw new RuntimeException('Ejercicio del entrenamiento no encontrado');
+                    $ids[] = (int) $id;
+                }
+            }
+            // Import merges memberships so existing user organization is not discarded.
+            $query = $pdo->prepare('SELECT exercise_id FROM workout_exercises WHERE workout_id = ?');
+            $query->execute([$workoutId]);
+            syncWorkoutExercises($workoutId, array_values(array_unique([...array_map('intval', array_column($query->fetchAll(), 'exercise_id')), ...$ids])));
         }
         foreach ($plan['records'] ?? [] as $record) {
             if (insertRecordIfMissing($userId, $record)) {
@@ -1299,24 +1158,15 @@ function applyImportPlan(int $userId, array $plan): array
     return $summary;
 }
 
-function ensureWorkout(int $userId, string $name, array $groupIds): int
+function ensureWorkout(int $userId, string $name): int
 {
     $pdo = Database::pdo();
     $stmt = $pdo->prepare('SELECT id FROM workouts WHERE user_id = ? AND name = ?');
     $stmt->execute([$userId, $name]);
-    $id = (int) ($stmt->fetchColumn() ?: 0);
-    if (!$id) {
-        $stmt = $pdo->prepare('INSERT INTO workouts (user_id, name) VALUES (?, ?)');
-        $stmt->execute([$userId, $name]);
-        $id = (int) $pdo->lastInsertId();
-    }
-
-    $stmt = $pdo->prepare('INSERT IGNORE INTO workout_muscle_groups (workout_id, muscle_group_id) VALUES (?, ?)');
-    foreach ($groupIds as $groupId) {
-        $stmt->execute([$id, $groupId]);
-    }
-
-    return $id;
+    $id = $stmt->fetchColumn();
+    if ($id) return (int) $id;
+    $pdo->prepare('INSERT INTO workouts (user_id, name) VALUES (?, ?)')->execute([$userId, $name]);
+    return (int) $pdo->lastInsertId();
 }
 
 function ensureGym(int $userId, string $name, bool $returnId = true): int|bool
@@ -1364,11 +1214,11 @@ function syncExerciseGymNames(int $exerciseId, int $userId, array $gymNames): vo
 function insertRecordIfMissing(int $userId, array $record): bool
 {
     if (!$record['exercise_id']) {
-        $stmt = Database::pdo()->prepare('SELECT id FROM exercises WHERE user_id = ? AND muscle_group_id = ? AND name = ?');
+        $stmt = Database::pdo()->prepare('SELECT id FROM exercises WHERE user_id = ? AND COALESCE(muscle_group_id, 0) = COALESCE(?, 0) AND name = ?');
         $stmt->execute([$userId, $record['muscle_group_id'], $record['exercise_name']]);
         $record['exercise_id'] = (int) $stmt->fetchColumn();
     }
-    if (!$record['workout_id']) {
+    if (!$record['workout_id'] && $record['workout_name'] !== null) {
         $stmt = Database::pdo()->prepare('SELECT id FROM workouts WHERE user_id = ? AND name = ?');
         $stmt->execute([$userId, $record['workout_name']]);
         $record['workout_id'] = (int) $stmt->fetchColumn();
@@ -1378,12 +1228,12 @@ function insertRecordIfMissing(int $userId, array $record): bool
         $stmt->execute([$userId, $record['gym_name']]);
         $record['gym_id'] = (int) $stmt->fetchColumn();
     }
-    if (!$record['exercise_id'] || !$record['workout_id']) {
+    if (!$record['exercise_id'] || ($record['workout_name'] !== null && !$record['workout_id'])) {
         Response::error('No se pudo resolver un registro importado', 400);
     }
     $gymId = !empty($record['gym_id']) ? (int) $record['gym_id'] : null;
 
-    $stmt = Database::pdo()->prepare('SELECT COUNT(*) FROM records WHERE user_id = ? AND exercise_id = ? AND workout_id = ? AND COALESCE(gym_id, 0) = COALESCE(?, 0) AND recorded_at = ? AND value = ? AND COALESCE(note, "") = ?');
+    $stmt = Database::pdo()->prepare('SELECT COUNT(*) FROM records WHERE user_id = ? AND exercise_id = ? AND COALESCE(workout_id, 0) = COALESCE(?, 0) AND COALESCE(gym_id, 0) = COALESCE(?, 0) AND recorded_at = ? AND value = ? AND COALESCE(note, "") = ?');
     $stmt->execute([$userId, $record['exercise_id'], $record['workout_id'], $gymId, $record['recorded_at'], $record['value'], $record['note']]);
     if ((int) $stmt->fetchColumn() > 0) {
         return false;
@@ -1399,9 +1249,9 @@ function normalizeKey(string $value): string
     return mb_strtolower(trim($value));
 }
 
-function exerciseImportKey(int $groupId, string $name): string
+function exerciseImportKey(?int $groupId, string $name): string
 {
-    return $groupId . '|' . normalizeKey($name);
+    return ($groupId ?? 0) . '|' . normalizeKey($name);
 }
 
 function numericValue(array $data): string

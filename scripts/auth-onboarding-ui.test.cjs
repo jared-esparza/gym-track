@@ -61,10 +61,10 @@ assert.equal(elements.get('forgotDetails').classList.contains('hidden'), true);
 assert.equal(elements.get('resetForm').classList.contains('hidden'), false);
 
 api.renderOnboardingState({ workouts: 0, exercises: 0, records: 0 });
-for (const text of ['Crea tu primer entrenamiento', 'Añade tu primer ejercicio', 'Registra tu primera marca']) {
+for (const text of ['Añade tu primer ejercicio', 'Registra tu primera marca']) {
   assert(elements.get('onboardingSteps').innerHTML.includes(text), `onboarding should explain: ${text}`);
 }
-assert.match(elements.get('onboardingActionBtn').textContent, /Crear entrenamiento/);
+assert.match(elements.get('onboardingActionBtn').textContent, /Añadir ejercicio/);
 api.renderOnboardingState({ workouts: 1, exercises: 0, records: 0 });
 assert.match(elements.get('onboardingActionBtn').textContent, /Añadir ejercicio/);
 api.renderOnboardingState({ workouts: 1, exercises: 2, records: 0 });

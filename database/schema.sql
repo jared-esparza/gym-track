@@ -64,7 +64,7 @@ CREATE TABLE gyms (
 CREATE TABLE exercises (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   user_id INT UNSIGNED NOT NULL,
-  muscle_group_id TINYINT UNSIGNED NOT NULL,
+  muscle_group_id TINYINT UNSIGNED NULL,
   name VARCHAR(140) NOT NULL,
   metric_type ENUM('kg', 'reps', 'min', 'km') NOT NULL,
   notes TEXT NULL,
@@ -72,7 +72,16 @@ CREATE TABLE exercises (
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_exercises_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   CONSTRAINT fk_exercises_group FOREIGN KEY (muscle_group_id) REFERENCES muscle_groups(id),
-  UNIQUE KEY uq_exercises_user_group_name (user_id, muscle_group_id, name)
+  muscle_group_key TINYINT UNSIGNED GENERATED ALWAYS AS (COALESCE(muscle_group_id, 0)) STORED,
+  UNIQUE KEY uq_exercises_user_group_name (user_id, muscle_group_key, name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE workout_exercises (
+  workout_id INT UNSIGNED NOT NULL,
+  exercise_id INT UNSIGNED NOT NULL,
+  PRIMARY KEY (workout_id, exercise_id),
+  CONSTRAINT fk_we_workout FOREIGN KEY (workout_id) REFERENCES workouts(id) ON DELETE CASCADE,
+  CONSTRAINT fk_we_exercise FOREIGN KEY (exercise_id) REFERENCES exercises(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE exercise_gyms (
@@ -87,7 +96,7 @@ CREATE TABLE records (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   user_id INT UNSIGNED NOT NULL,
   exercise_id INT UNSIGNED NOT NULL,
-  workout_id INT UNSIGNED NOT NULL,
+  workout_id INT UNSIGNED NULL,
   gym_id INT UNSIGNED NULL,
   value DECIMAL(10,2) NOT NULL,
   metric_type ENUM('kg', 'reps', 'min', 'km') NOT NULL,
@@ -97,7 +106,7 @@ CREATE TABLE records (
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_records_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   CONSTRAINT fk_records_exercise FOREIGN KEY (exercise_id) REFERENCES exercises(id) ON DELETE CASCADE,
-  CONSTRAINT fk_records_workout FOREIGN KEY (workout_id) REFERENCES workouts(id),
+  CONSTRAINT fk_records_workout FOREIGN KEY (workout_id) REFERENCES workouts(id) ON DELETE SET NULL,
   CONSTRAINT fk_records_gym FOREIGN KEY (gym_id) REFERENCES gyms(id) ON DELETE SET NULL,
   INDEX idx_records_exercise_date (exercise_id, recorded_at),
   INDEX idx_records_exercise_gym_date (exercise_id, gym_id, recorded_at),

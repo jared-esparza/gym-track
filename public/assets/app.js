@@ -6,6 +6,9 @@ const state = {
   gymsEnabled: false,
   activeWorkout: null,
   activeWorkoutGroups: [],
+  activeWorkoutExerciseIds: [],
+  catalogScope: 'all',
+  workoutExercises: [],
   activeExercise: null,
   manageExercises: [],
   importPreviewToken: null,
@@ -71,7 +74,19 @@ async function api(action, options = {}) {
     headers,
   });
   const data = await response.json();
-  if (!data.ok) throw new Error(data.error || 'Error inesperado');
+  if (!data.ok) {
+    const demoExpired = response.status === 403 && state.user?.is_demo
+      && !(await fetch('api.php?action=me', { credentials: 'same-origin' }).then((r) => r.json())).user;
+    if ((response.status === 401 || demoExpired) && state.user) {
+      const wasDemo = state.user.is_demo;
+      state.user = null;
+      showAuth();
+      const fresh = await fetch('api.php?action=me', { credentials: 'same-origin' }).then((r) => r.json());
+      state.csrfToken = fresh.csrf_token || '';
+      if (wasDemo) showMessage('La demo ha caducado. Pulsa Probar demo para empezar otra.', 'error', $('authMessage'));
+    }
+    throw new Error(data.error || 'Error inesperado');
+  }
   return data;
 }
 
@@ -191,7 +206,7 @@ function filterTrainingExercises(query) {
 
 function renderTrainingGroups(groups) {
   const selectedId = String($('trainGroupSelect').value || '');
-  const options = [{ id: '', name: 'Todos' }, ...groups];
+  const options = [{ id: '', name: 'Todos' }, ...groups, { id: 'none', name: 'Sin grupo' }];
   $('trainingGroupFilters').innerHTML = options.map((group) => {
     const id = String(group.id);
     const active = id === selectedId;
@@ -346,7 +361,7 @@ async function init() {
     $('resetForm').elements.token.value = params.get('reset');
     showAuthMode('reset');
   } else {
-    showAuthMode('login');
+    showAuthMode(params.has('register') ? 'register' : 'login');
   }
 
   const me = await api('me');
@@ -356,6 +371,7 @@ async function init() {
     await showApp();
   } else {
     showAuth();
+    if (params.has('demo')) await startDemo();
   }
 }
 
@@ -367,13 +383,35 @@ function showAuth() {
 async function showApp() {
   $('authView').classList.add('hidden');
   $('appView').classList.remove('hidden');
-  $('userEmail').textContent = state.user.email;
-  $('desktopUserEmail').textContent = state.user.email;
+  $('userEmail').textContent = state.user.is_demo ? 'Demo · cambios temporales' : state.user.email;
+  $('desktopUserEmail').textContent = state.user.is_demo ? 'Demo · cambios temporales' : state.user.email;
+  $('demoBanner').classList.toggle('hidden', !state.user.is_demo);
   await loadBootstrap();
   switchTab(getDefaultTab());
 }
 
+async function startDemo() {
+  try {
+    const data = await send('demo-start');
+    state.user = data.user;
+    state.csrfToken = data.csrf_token;
+    $('activeWorkoutSelect').value = '';
+    state.catalogScope = 'all';
+    history.replaceState(null, '', '?demo=1');
+    await showApp();
+  } catch (error) {
+    showMessage(error.message, 'error', $('authMessage'));
+  }
+}
+
+async function exitDemo(register = false) {
+  await send('logout');
+  // Reload clears editors, selections and cached data before entering a real account.
+  location.assign(location.pathname + (register ? '?register=1' : ''));
+}
+
 function bindAuth() {
+  $('tryDemoBtn').addEventListener('click', startDemo);
   $('showRegisterBtn').addEventListener('click', () => showAuthMode('register'));
   $('showForgotBtn').addEventListener('click', () => showAuthMode('forgot'));
   $('backToLoginFromRegisterBtn').addEventListener('click', () => showAuthMode('login'));
@@ -477,7 +515,6 @@ function renderOnboardingState(progress) {
     records: Math.max(0, Number(progress.records) || 0),
   };
   const steps = [
-    { key: 'workouts', label: 'Crea tu primer entrenamiento' },
     { key: 'exercises', label: 'Añade tu primer ejercicio' },
     { key: 'records', label: 'Registra tu primera marca' },
   ];
@@ -494,19 +531,11 @@ function renderOnboardingState(progress) {
 
   const action = $('onboardingActionBtn');
   if (!nextKey) return;
-  if (nextKey === 'workouts') {
-    action.textContent = 'Crear entrenamiento';
-    action.onclick = () => {
-      switchTab('manageTab');
-      openManageSection('workouts');
-      resetWorkoutForm();
-    };
-  } else if (nextKey === 'exercises') {
+  if (nextKey === 'exercises') {
     action.textContent = 'Añadir ejercicio';
     action.onclick = () => {
-      switchTab('manageTab');
-      openManageSection('exercises');
-      resetManageExerciseForm();
+      switchTab('trainTab');
+      $('showCreateExerciseBtn').click();
     };
   } else {
     action.textContent = 'Registrar marca';
@@ -518,11 +547,34 @@ function renderOnboardingState(progress) {
 }
 
 function bindApp() {
+  $('resetDemoBtn').addEventListener('click', async () => {
+    if (!await openConfirmDialog({ title: 'Reiniciar demo', message: 'Se descartarán tus cambios y volverán los datos de ejemplo.', confirmLabel: 'Reiniciar' })) return;
+    try { await send('demo-reset'); location.reload(); } catch (error) { showMessage(error.message, 'error'); }
+  });
+  $('exitDemoBtn').addEventListener('click', () => exitDemo().catch((error) => showMessage(error.message, 'error')));
+  $('demoRegisterBtn').addEventListener('click', () => exitDemo(true).catch((error) => showMessage(error.message, 'error')));
+  $('allExercisesBtn').addEventListener('click', async () => {
+    state.catalogScope = state.catalogScope === 'all' && $('activeWorkoutSelect').value ? 'workout' : 'all';
+    $('trainGroupSelect').value = '';
+    state.trainingQuery = '';
+    $('trainingExerciseSearch').value = '';
+    updateCatalogScope();
+    renderTrainingGroups(state.groups);
+    await loadExercises('train');
+  });
+  $('workoutExerciseSearch').addEventListener('input', (event) => {
+    const query = normalizeTrainingText(event.currentTarget.value);
+    $('workoutExerciseCheckboxes').querySelectorAll('label').forEach((label) => {
+      label.hidden = !normalizeTrainingText(label.textContent).includes(query);
+    });
+  });
   $('logoutBtn').addEventListener('click', async () => {
+    if (state.user?.is_demo) { await exitDemo(); return; }
     await send('logout');
     location.reload();
   });
   $('desktopLogoutBtn').addEventListener('click', async () => {
+    if (state.user?.is_demo) { await exitDemo(); return; }
     await send('logout');
     location.reload();
   });
@@ -547,7 +599,12 @@ function bindApp() {
   $('historyGymSelect').addEventListener('change', () => loadExercises('history'));
   $('historyGroupSelect').addEventListener('change', () => loadExercises('history'));
   $('historyExerciseSelect').addEventListener('change', loadHistory);
-  $('showCreateExerciseBtn').addEventListener('click', () => $('quickExerciseForm').classList.remove('hidden'));
+  $('showCreateExerciseBtn').addEventListener('click', () => {
+    const form = $('quickExerciseForm');
+    form.classList.remove('hidden');
+    form.elements.muscle_group_id.value = $('trainGroupSelect').value === 'none' ? '' : $('trainGroupSelect').value;
+    form.elements.name.focus();
+  });
   $('cancelCreateExerciseBtn').addEventListener('click', () => $('quickExerciseForm').classList.add('hidden'));
   $('editNotesBtn').addEventListener('click', () => $('exerciseNotesForm').classList.toggle('hidden'));
   $('gymsEnabledToggle').addEventListener('change', saveGymPreference);
@@ -678,6 +735,7 @@ function focusManagementSection(sectionId) {
 }
 
 async function loadBootstrap() {
+  const selectedWorkout = $('activeWorkoutSelect').value;
   const selectedManageGroup = $('manageExerciseGroupSelect').value;
   const selectedTrainGym = $('trainGymSelect').value;
   const selectedHistoryGym = $('historyGymSelect').value;
@@ -686,17 +744,17 @@ async function loadBootstrap() {
   state.workouts = data.workouts;
   state.gyms = data.gyms || [];
   state.gymsEnabled = Boolean(data.gyms_enabled);
-  renderGroups();
   renderGymCheckboxes();
   renderWorkouts();
   renderGyms();
-  fillSelect($('activeWorkoutSelect'), state.workouts, 'Elige entrenamiento');
+  fillSelect($('activeWorkoutSelect'), state.workouts, 'Sin entrenamiento');
   fillGymSelect($('trainGymSelect'), state.gyms.length ? 'Elige gimnasio' : 'Crea un gimnasio primero');
   fillGymSelect($('historyGymSelect'), state.gyms.length ? 'Elige gimnasio' : 'Crea un gimnasio primero', true);
   fillGymSelect($('recordEditGymSelect'), 'Sin gimnasio', true);
-  fillSelect($('historyGroupSelect'), state.groups, 'Todos los grupos');
-  fillSelect($('manageExerciseGroupSelect'), state.groups, 'Todos los grupos');
-  fillSelect($('exerciseManagementForm').elements.muscle_group_id, state.groups, 'Elige grupo');
+  fillSelect($('historyGroupSelect'), [...state.groups, { id: 'none', name: 'Sin grupo' }], 'Todos los grupos');
+  fillSelect($('manageExerciseGroupSelect'), [...state.groups, { id: 'none', name: 'Sin grupo' }], 'Todos los grupos');
+  fillSelect($('exerciseManagementForm').elements.muscle_group_id, state.groups, 'Sin grupo');
+  fillSelect($('quickExerciseForm').elements.muscle_group_id, state.groups, 'Sin grupo');
   $('gymsEnabledToggle').checked = state.gymsEnabled;
   syncGymVisibility();
 
@@ -707,19 +765,18 @@ async function loadBootstrap() {
   await refreshOnboarding();
   await loadExercises('history');
 
-  if (state.workouts.length) {
-    $('activeWorkoutSelect').value = state.workouts[0].id;
-    await loadActiveWorkout();
-  } else {
-    fillSelect($('trainGroupSelect'), [], 'Crea un entrenamiento primero');
-    fillExerciseSelect($('trainExerciseSelect'), [], 'Elige ejercicio');
-  }
+  if (state.workouts.some((workout) => String(workout.id) === selectedWorkout)) $('activeWorkoutSelect').value = selectedWorkout;
+  await loadActiveWorkout(false);
+  await refreshWorkoutExerciseChoices();
 }
 
-function renderGroups() {
-  $('groupCheckboxes').innerHTML = state.groups.map((group) => (
-    `<label class="check"><input type="checkbox" name="muscle_group_ids" value="${group.id}">${escapeHtml(group.name)}</label>`
-  )).join('');
+async function refreshWorkoutExerciseChoices() {
+  state.workoutExercises = (await api('exercises')).exercises;
+  const checked = new Set([...$('workoutExerciseCheckboxes').querySelectorAll('input:checked')].map((input) => Number(input.value)));
+  $('workoutExerciseCheckboxes').innerHTML = '<legend>Ejercicios (opcional)</legend>' + state.workoutExercises.map((exercise) => (
+    `<label class="check"><input type="checkbox" name="exercise_ids" value="${exercise.id}"${checked.has(Number(exercise.id)) ? ' checked' : ''}>${escapeHtml(exercise.name)} · ${escapeHtml(groupName(exercise.muscle_group_id))}</label>`
+  )).join('') + (state.workoutExercises.length ? '' : '<p class="muted">Todavía no hay ejercicios. Puedes guardar la lista vacía y añadirlos después.</p>');
+  $('workoutExerciseSearch').value = '';
 }
 
 function renderGymCheckboxes() {
@@ -759,7 +816,7 @@ function syncGymVisibility() {
 }
 
 function renderWorkouts() {
-  $('workoutList').innerHTML = state.workouts.length ? '' : '<p class="empty-state">Aún no tienes entrenamientos. Crea uno para empezar a registrar marcas.</p>';
+  $('workoutList').innerHTML = state.workouts.length ? '' : '<p class="empty-state">Los entrenamientos son opcionales. Crea uno para organizar una lista de ejercicios.</p>';
   state.workouts.forEach((workout) => {
     const node = document.createElement('article');
     node.className = 'item';
@@ -780,18 +837,40 @@ function renderWorkouts() {
   });
 }
 
-async function loadActiveWorkout() {
+function updateCatalogScope() {
+  const hasWorkout = Boolean($('activeWorkoutSelect').value);
+  $('allExercisesBtn').classList.toggle('hidden', !hasWorkout);
+  $('allExercisesBtn').textContent = state.catalogScope === 'all' ? 'Ver ejercicios del entrenamiento' : 'Todos los ejercicios';
+  $('catalogScopeHint').textContent = hasWorkout
+    ? (state.catalogScope === 'all' ? 'Catálogo completo. Los ejercicios externos se registran sin entrenamiento.' : 'Ejercicios del entrenamiento. También puedes registrar uno fuera de esta lista.')
+    : 'Catálogo completo. Elige un ejercicio o crea uno para registrar una marca.';
+}
+
+async function loadActiveWorkout(resetScope = true) {
   const workoutId = $('activeWorkoutSelect').value;
   $('exercisePanel').classList.add('hidden');
-  if (!workoutId) return;
-  const data = await api(`workout&id=${encodeURIComponent(workoutId)}`);
-  state.activeWorkout = data.workout;
-  state.activeWorkoutGroups = state.groups.filter((group) => data.muscle_group_ids.includes(Number(group.id)));
-  fillSelect($('trainGroupSelect'), state.activeWorkoutGroups, 'Todos los grupos del entrenamiento');
+  state.activeExercise = null;
+  state.activeWorkout = null;
+  state.activeWorkoutExerciseIds = [];
+  if (workoutId) {
+    const data = await api(`workout&id=${encodeURIComponent(workoutId)}`);
+    state.activeWorkout = data.workout;
+    state.activeWorkoutExerciseIds = data.exercise_ids.map(Number);
+  }
+  if (resetScope !== false) state.catalogScope = workoutId ? 'workout' : 'all';
+  if (!workoutId) state.catalogScope = 'all';
+  state.activeWorkoutGroups = state.groups;
+  fillSelect($('trainGroupSelect'), [...state.groups, { id: 'none', name: 'Sin grupo' }], 'Todos los grupos');
   state.trainingQuery = '';
   $('trainingExerciseSearch').value = '';
-  renderTrainingGroups(state.activeWorkoutGroups);
+  updateCatalogScope();
+  renderTrainingGroups(state.groups);
   await loadExercises('train');
+}
+
+function workoutIdForExercise(exerciseId) {
+  const workoutId = Number($('activeWorkoutSelect').value);
+  return workoutId && state.activeWorkoutExerciseIds.includes(Number(exerciseId)) ? workoutId : null;
 }
 
 async function loadExercises(context) {
@@ -838,17 +917,16 @@ function exercisesUrl(context, groupId = '') {
   if (groupId) params.push(`muscle_group_id=${encodeURIComponent(groupId)}`);
   if (context === 'train') {
     const workoutId = $('activeWorkoutSelect').value;
-    if (!groupId && workoutId) params.push(`workout_id=${encodeURIComponent(workoutId)}`);
-    if (!groupId && !workoutId) return '';
+    if (workoutId && state.catalogScope === 'workout') params.push(`workout_id=${encodeURIComponent(workoutId)}`);
     if (state.gymsEnabled) params.push(`gym_id=${encodeURIComponent($('trainGymSelect').value)}`);
-    return `exercises&${params.join('&')}`;
+    return `exercises${params.length ? `&${params.join('&')}` : ''}`;
   }
   if (state.gymsEnabled) params.push(`gym_id=${encodeURIComponent($('historyGymSelect').value)}`);
   return `exercises${params.length ? `&${params.join('&')}` : ''}`;
 }
 
 function emptyExercisePlaceholder(context, groupId = '') {
-  if (context === 'train') return 'No hay ejercicios disponibles para este entrenamiento';
+  if (context === 'train' && state.catalogScope === 'workout') return 'No hay ejercicios en esta selección. Explora todos o crea uno nuevo.';
   return groupId ? 'No hay ejercicios en este grupo' : 'No hay ejercicios todavía';
 }
 
@@ -857,17 +935,24 @@ async function createExercise(event) {
   const form = event.currentTarget;
   try {
     const payload = formData(form);
-    payload.muscle_group_id = $('trainGroupSelect').value;
-    if (!payload.muscle_group_id) throw new Error('Selecciona un grupo muscular');
+    payload.muscle_group_id = payload.muscle_group_id || null;
     if (state.gymsEnabled) {
       if (!$('trainGymSelect').value) throw new Error('Selecciona un gimnasio');
       payload.gym_ids = [$('trainGymSelect').value];
     }
     const data = await send('exercise', payload);
+    state.catalogScope = 'all';
+    $('trainGroupSelect').value = '';
+    state.trainingQuery = '';
+    $('trainingExerciseSearch').value = '';
+    updateCatalogScope();
+    renderTrainingGroups(state.groups);
     await loadExercises('train');
     form.reset();
     form.classList.add('hidden');
     await selectTrainingExercise(data.id);
+    await loadExercises('history');
+    await refreshWorkoutExerciseChoices();
     if (!$('manageExerciseGroupSelect').value || $('manageExerciseGroupSelect').value === payload.muscle_group_id) await loadManageExercises();
     await refreshOnboarding();
   } catch (error) {
@@ -896,6 +981,9 @@ async function loadExerciseSummary() {
   state.activeExercise = data.exercise;
   state.previousRm = data.rm === null || data.rm === undefined ? null : Number(data.rm);
   $('trainingExerciseName').textContent = data.exercise.name;
+  $('recordWorkoutContext').textContent = workoutIdForExercise(exerciseId)
+    ? `Se guardará en ${state.activeWorkout.name}.`
+    : 'Se guardará sin entrenamiento.';
   $('recordMetricBadge').textContent = data.exercise.metric_type;
   $('rmValue').textContent = formatValue(data.rm, data.exercise.metric_type);
   $('lastValue').textContent = data.last_record ? `${formatValue(data.last_record.value, data.last_record.metric_type)} · ${formatDate(data.last_record.recorded_at)}` : '-';
@@ -929,7 +1017,7 @@ async function saveRecord(event) {
   try {
     if (state.gymsEnabled && !$('trainGymSelect').value) throw new Error('Selecciona un gimnasio');
     await send('records', {
-      workout_id: $('activeWorkoutSelect').value,
+      workout_id: workoutIdForExercise($('trainExerciseSelect').value),
       exercise_id: $('trainExerciseSelect').value,
       ...(state.gymsEnabled ? { gym_id: $('trainGymSelect').value } : {}),
       ...payload,
@@ -949,7 +1037,7 @@ async function saveWorkout(event) {
   const form = event.currentTarget;
   try {
     const data = formData(form);
-    data.muscle_group_ids = [...form.querySelectorAll('input[name="muscle_group_ids"]:checked')].map((input) => input.value);
+    data.exercise_ids = [...form.querySelectorAll('input[name="exercise_ids"]:checked')].map((input) => input.value);
     const action = data.id ? 'workout' : 'workouts';
     await send(action, data);
     hideWorkoutForm();
@@ -962,6 +1050,7 @@ async function saveWorkout(event) {
 
 async function editWorkout(id) {
   const data = await api(`workout&id=${encodeURIComponent(id)}`);
+  await refreshWorkoutExerciseChoices();
   if (!placeManagementForm({
     formId: 'workoutForm',
     homeId: 'workoutFormHome',
@@ -974,8 +1063,8 @@ async function editWorkout(id) {
   const form = $('workoutForm');
   form.elements.id.value = data.workout.id;
   form.elements.name.value = data.workout.name;
-  form.querySelectorAll('input[name="muscle_group_ids"]').forEach((input) => {
-    input.checked = data.muscle_group_ids.includes(Number(input.value));
+  form.querySelectorAll('input[name="exercise_ids"]').forEach((input) => {
+    input.checked = data.exercise_ids.map(Number).includes(Number(input.value));
   });
   $('workoutFormTitle').textContent = 'Editar entrenamiento';
   form.classList.remove('hidden');
@@ -986,7 +1075,7 @@ async function editWorkout(id) {
 async function deleteWorkout(id) {
   const confirmed = await openConfirmDialog({
     title: 'Eliminar entrenamiento',
-    message: 'Se eliminará este entrenamiento y dejará de aparecer al registrar marcas.',
+    message: 'Se eliminará esta lista. Sus ejercicios y marcas se conservarán; las marcas quedarán sin entrenamiento.',
     confirmLabel: 'Eliminar entrenamiento',
   });
   if (!confirmed) return;
@@ -1000,7 +1089,8 @@ async function deleteWorkout(id) {
   }
 }
 
-function resetWorkoutForm() {
+async function resetWorkoutForm() {
+  await refreshWorkoutExerciseChoices();
   placeManagementForm({
     formId: 'workoutForm',
     homeId: 'workoutFormHome',
@@ -1012,7 +1102,7 @@ function resetWorkoutForm() {
   const form = $('workoutForm');
   form.reset();
   form.elements.id.value = '';
-  form.querySelectorAll('input[name="muscle_group_ids"]').forEach((input) => {
+  form.querySelectorAll('input[name="exercise_ids"]').forEach((input) => {
     input.checked = false;
   });
   $('workoutFormTitle').textContent = 'Nuevo entrenamiento';
@@ -1197,7 +1287,7 @@ function resetManageExerciseForm() {
   form.reset();
   form.elements.id.value = '';
   form.elements.record_count.value = '0';
-  form.elements.muscle_group_id.value = $('manageExerciseGroupSelect').value || '';
+  form.elements.muscle_group_id.value = $('manageExerciseGroupSelect').value === 'none' ? '' : $('manageExerciseGroupSelect').value;
   form.elements.metric_type.disabled = false;
   form.querySelectorAll('input[name="gym_ids"]').forEach((input) => {
     input.checked = false;
@@ -1224,7 +1314,7 @@ function editExercise(id) {
   form.elements.id.value = exercise.id;
   form.elements.record_count.value = String(count);
   form.elements.name.value = exercise.name;
-  form.elements.muscle_group_id.value = exercise.muscle_group_id;
+  form.elements.muscle_group_id.value = exercise.muscle_group_id || '';
   form.elements.metric_type.value = exercise.metric_type;
   form.elements.metric_type.disabled = count > 0;
   form.elements.notes.value = exercise.notes || '';
@@ -1251,6 +1341,7 @@ async function saveManagedExercise(event) {
     $('manageExerciseGroupSelect').value = previousGroup ? (payload.muscle_group_id || previousGroup) : '';
     await loadManageExercises();
     await refreshExerciseSelectorsAfterManagedSave(payload.muscle_group_id);
+    await refreshWorkoutExerciseChoices();
     await refreshOnboarding();
     showMessage('Ejercicio guardado.');
   } catch (error) {
@@ -1272,6 +1363,9 @@ async function deleteExercise(id) {
     hideManageExerciseForm();
     clearDeletedExerciseSelections(id);
     await loadManageExercises();
+    await loadActiveWorkout(false);
+    await loadExercises('history');
+    await refreshWorkoutExerciseChoices();
     await refreshOnboarding();
     announce('Ejercicio eliminado.', 'success');
     focusManagementSection('exercises');
@@ -1325,7 +1419,17 @@ async function previewImport(event) {
       body: payload,
     });
     const data = await response.json();
-    if (!data.ok) throw new Error(data.error || 'Error inesperado');
+    if (!data.ok) {
+    if (response.status === 401 && state.user) {
+      const wasDemo = state.user.is_demo;
+      state.user = null;
+      showAuth();
+      const fresh = await fetch('api.php?action=me', { credentials: 'same-origin' }).then((r) => r.json());
+      state.csrfToken = fresh.csrf_token || '';
+      if (wasDemo) showMessage('La demo ha caducado. Pulsa Probar demo para empezar otra.', 'error', $('authMessage'));
+    }
+    throw new Error(data.error || 'Error inesperado');
+  }
     state.importPreviewToken = data.import_token || null;
     renderImportPreview(data);
   } catch (error) {
@@ -1435,7 +1539,7 @@ function renderHistory(data) {
   const rows = data.records.map((record) => `
     <tr>
       <td>${formatDate(record.recorded_at)}</td>
-      <td>${escapeHtml(record.workout_name)}</td>
+      <td>${escapeHtml(record.workout_name || 'Sin entrenamiento')}</td>
       <td>${formatValue(record.value, record.metric_type)}</td>
       <td>${escapeHtml(record.note || '')}</td>
       <td>
@@ -1462,7 +1566,7 @@ function renderHistoryCards(records) {
         <span class="label">${formatDate(record.recorded_at)}</span>
         <strong>${formatValue(record.value, record.metric_type)}</strong>
       </div>
-      <p class="muted">${escapeHtml(record.workout_name)}${record.note ? ` · ${escapeHtml(record.note)}` : ''}</p>
+      <p class="muted">${escapeHtml(record.workout_name || 'Sin entrenamiento')}${record.note ? ` · ${escapeHtml(record.note)}` : ''}</p>
       <div class="action-row compact-actions">
         <button class="ghost" type="button" data-edit="${record.id}" data-value="${record.value}" data-note="${escapeHtml(record.note || '')}" data-gym-id="${record.gym_id || 'none'}">Editar</button>
         <button class="ghost danger" type="button" data-delete="${record.id}">Eliminar</button>
@@ -1551,7 +1655,7 @@ async function deleteRecord(id) {
 
 function groupName(id) {
   const group = state.groups.find((item) => Number(item.id) === Number(id));
-  return group ? group.name : 'Grupo';
+  return group ? group.name : 'Sin grupo';
 }
 
 function exerciseGymLabel(exercise) {

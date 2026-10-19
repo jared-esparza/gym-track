@@ -12,7 +12,7 @@ final class ImportService
     {
         $data = json_decode($content, true);
         $version = (int) ($data['version'] ?? 0);
-        if (!is_array($data) || ($data['schema'] ?? '') !== 'gym-tracker-export' || !in_array($version, [1, 2], true)) {
+        if (!is_array($data) || ($data['schema'] ?? '') !== 'gym-tracker-export' || !in_array($version, [1, 2, 3], true)) {
             return self::result(['JSON de backup no reconocido']);
         }
 
@@ -46,6 +46,24 @@ final class ImportService
                 ];
             }
         }
+        foreach ($plan['workouts'] as &$workout) {
+            if ($version < 3) {
+                $workout['exercises'] = null; // Legacy group selection is resolved after all exercises are saved.
+                continue;
+            }
+            foreach ($workout['exercises'] as $reference) {
+                if (!is_array($reference)) {
+                    $errors[] = 'Referencia de ejercicio invalida';
+                    continue;
+                }
+                $groupName = trim((string) ($reference['muscle_group'] ?? ''));
+                $groupId = $context['groups'][self::key($groupName)]['id'] ?? null;
+                if (($groupName !== '' && !$groupId) || !isset($context['exercises'][self::exerciseKey($groupId, (string) ($reference['name'] ?? ''))])) {
+                    $errors[] = 'Ejercicio del entrenamiento no encontrado';
+                }
+            }
+        }
+        unset($workout);
         foreach (array_slice($data['records'] ?? [], 0, self::MAX_ROWS) as $index => $row) {
             $record = self::normalizeRecord($row, $context, $index + 1, $errors);
             if ($record) {
@@ -147,7 +165,8 @@ final class ImportService
             }
             $groupIds[] = $group['id'];
         }
-        if (!$groupIds) {
+        if (isset($row['exercises']) && !is_array($row['exercises'])) {
+            $errors[] = "Fila {$rowNumber}: lista de ejercicios invalida";
             return null;
         }
         $existing = $context['workouts'][self::key($name)] ?? null;
@@ -155,7 +174,7 @@ final class ImportService
             return null;
         }
 
-        return ['id' => $existing['id'] ?? null, 'name' => mb_substr($name, 0, 120), 'muscle_group_ids' => array_values(array_unique($groupIds))];
+        return ['id' => $existing['id'] ?? null, 'name' => mb_substr($name, 0, 120), 'muscle_group_ids' => array_values(array_unique($groupIds)), 'exercises' => $row['exercises'] ?? []];
     }
 
     private static function normalizeExercise(array $row, array $context, int $rowNumber, array &$errors): ?array
@@ -169,7 +188,7 @@ final class ImportService
             return null;
         }
 
-        if (!$group) {
+        if (!$group && $groupName !== '') {
             $errors[] = "Fila {$rowNumber}: grupo muscular desconocido";
             return null;
         }
@@ -182,7 +201,7 @@ final class ImportService
             return null;
         }
 
-        $existing = $context['exercises'][self::exerciseKey($group['id'], $name)] ?? null;
+        $existing = $context['exercises'][self::exerciseKey($group['id'] ?? null, $name)] ?? null;
         if ($existing && !$existing['id']) {
             return null;
         }
@@ -194,8 +213,8 @@ final class ImportService
         return [
             'id' => $existing['id'] ?? null,
             'record_count' => $existing['record_count'] ?? 0,
-            'muscle_group_id' => $group['id'],
-            'muscle_group' => $group['name'],
+            'muscle_group_id' => $group['id'] ?? null,
+            'muscle_group' => $group['name'] ?? null,
             'name' => mb_substr($name, 0, 140),
             'metric_type' => $metric,
             'notes' => mb_substr(trim((string) ($row['notes'] ?? '')), 0, 2000),
@@ -209,11 +228,11 @@ final class ImportService
         $group = $context['groups'][self::key((string) ($row['muscle_group'] ?? ''))] ?? null;
         $workout = $context['workouts'][self::key((string) ($row['workout'] ?? ''))] ?? null;
         $exerciseName = trim((string) ($row['exercise'] ?? ''));
-        if (!$group || !$workout || $exerciseName === '') {
+        if ((!$group && !empty($row['muscle_group'])) || (!$workout && !empty($row['workout'])) || $exerciseName === '') {
             $errors[] = "Fila {$rowNumber}: registro no resoluble";
             return null;
         }
-        $exercise = $context['exercises'][self::exerciseKey($group['id'], $exerciseName)] ?? null;
+        $exercise = $context['exercises'][self::exerciseKey($group['id'] ?? null, $exerciseName)] ?? null;
         $gym = self::optionalGym($row['gym'] ?? null, $context, $rowNumber, $errors);
         if ($gym === false) {
             return null;
@@ -228,9 +247,9 @@ final class ImportService
         return [
             'exercise_id' => $exercise['id'],
             'exercise_name' => $exerciseName,
-            'muscle_group_id' => $group['id'],
-            'workout_id' => $workout['id'],
-            'workout_name' => $workout['name'],
+            'muscle_group_id' => $group['id'] ?? null,
+            'workout_id' => $workout['id'] ?? null,
+            'workout_name' => $workout['name'] ?? null,
             'gym_id' => $gym['id'] ?? null,
             'gym_name' => $gym['name'] ?? null,
             'value' => number_format((float) $value, 2, '.', ''),
@@ -307,8 +326,8 @@ final class ImportService
         return mb_strtolower(trim($value));
     }
 
-    private static function exerciseKey(int $groupId, string $name): string
+    private static function exerciseKey(?int $groupId, string $name): string
     {
-        return $groupId . '|' . self::key($name);
+        return ($groupId ?? 0) . '|' . self::key($name);
     }
 }

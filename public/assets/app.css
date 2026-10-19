@@ -455,6 +455,240 @@ h3 {
   color: var(--color-plate-blue-dark);
 }
 
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+.session-context {
+  margin-bottom: 18px;
+  background: var(--color-paper);
+  border: 1px solid var(--color-line);
+  border-top: 5px solid var(--color-graphite);
+}
+
+.session-context__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 16px 12px;
+}
+
+.session-context__heading h1 {
+  margin-bottom: 0;
+}
+
+.session-status {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 5px;
+  color: var(--color-success);
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.session-status i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 4px rgba(24, 117, 83, 0.12);
+}
+
+.session-context__controls {
+  display: grid;
+  gap: 12px;
+  padding: 0 16px 18px;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.training-browser {
+  display: grid;
+  gap: 16px;
+  padding: 18px 16px;
+}
+
+.field-label,
+.training-search > span:first-child {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.training-group-filters {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 2px 2px 6px;
+  scrollbar-width: thin;
+}
+
+.training-group-filters button {
+  min-height: 40px;
+  flex: 0 0 auto;
+  border: 1px solid var(--line-strong);
+  background: var(--color-paper);
+  color: var(--color-slate);
+  padding: 0 14px;
+}
+
+.training-group-filters button.active {
+  border-color: var(--color-plate-blue);
+  background: var(--color-plate-blue);
+  color: var(--color-paper);
+}
+
+.search-control {
+  position: relative;
+  display: block;
+}
+
+.search-control svg {
+  position: absolute;
+  top: 50%;
+  left: 13px;
+  width: 19px;
+  height: 19px;
+  color: var(--color-slate);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.search-control input {
+  padding-left: 42px;
+}
+
+.training-exercise-list {
+  display: grid;
+  gap: 1px;
+  border-top: 1px solid var(--color-line);
+  border-bottom: 1px solid var(--color-line);
+}
+
+.exercise-option {
+  width: 100%;
+  min-height: 62px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border: 0;
+  border-bottom: 1px solid var(--color-line);
+  border-radius: 0;
+  background: var(--color-paper);
+  color: var(--color-graphite);
+  padding: 10px 4px 10px 12px;
+  text-align: left;
+}
+
+.exercise-option:last-child {
+  border-bottom: 0;
+}
+
+.exercise-option:hover,
+.exercise-option.active {
+  background: #F0F3FE;
+  box-shadow: inset 4px 0 0 var(--color-plate-blue);
+}
+
+.exercise-option__body {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.exercise-option__name {
+  display: block;
+  overflow-wrap: anywhere;
+  font-size: 0.97rem;
+  font-weight: 600;
+}
+
+.exercise-option__body > span,
+.exercise-option__metric {
+  color: var(--color-slate);
+  font-size: 0.76rem;
+}
+
+.exercise-option__metric {
+  flex: 0 0 auto;
+  min-width: 38px;
+  border: 1px solid var(--color-line);
+  background: var(--color-chalk);
+  padding: 5px 7px;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.training-list-state {
+  margin: 0;
+  color: var(--color-slate);
+  padding: 20px 12px;
+  text-align: center;
+}
+
+.text-action {
+  width: fit-content;
+  min-height: 44px;
+  background: transparent;
+  color: var(--color-plate-blue-dark);
+  padding: 0;
+  text-align: left;
+}
+
+.record-cockpit {
+  position: relative;
+  display: grid;
+  gap: 18px;
+  margin-bottom: 24px;
+  border: 1px solid var(--color-graphite);
+  background: var(--color-graphite);
+  color: var(--color-paper);
+  padding: 18px 16px 16px;
+  box-shadow: 8px 8px 0 var(--color-tape-orange);
+}
+
+.record-cockpit__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.record-cockpit__head h2 {
+  margin: 0;
+  color: var(--color-paper);
+  font-size: clamp(1.9rem, 9vw, 2.7rem);
+  overflow-wrap: anywhere;
+}
+
+.record-cockpit .eyebrow,
+.record-cockpit .label {
+  color: #AEB8C7;
+}
+
+.metric-badge {
+  flex: 0 0 auto;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  color: var(--color-paper);
+  padding: 5px 8px;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  text-transform: uppercase;
+}
+
 .session-panel {
   display: grid;
   gap: 14px;
@@ -476,6 +710,24 @@ h3 {
   border-radius: 8px;
   background: var(--panel-soft);
   padding: 12px;
+}
+
+.record-cockpit .metric-card {
+  min-height: 96px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.record-cockpit .metric-card--rm {
+  border-color: rgba(242, 106, 46, 0.7);
+}
+
+.record-cockpit .metric-card strong {
+  color: var(--color-paper);
+  font-family: var(--font-display);
+  font-size: clamp(1.6rem, 8vw, 2.35rem);
+  font-weight: 600;
 }
 
 .metric-card strong {
@@ -501,6 +753,18 @@ h3 {
   padding: 10px 0;
 }
 
+.record-cockpit .notes-box {
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.record-cockpit .notes-box .muted {
+  color: #CDD3DD;
+}
+
+.record-cockpit .text-action {
+  color: #AFC2FF;
+}
+
 .notes-box .ghost {
   min-height: 38px;
 }
@@ -510,6 +774,37 @@ h3 {
   background: var(--panel-soft);
   border: 1px solid var(--line);
   padding: 14px;
+}
+
+.record-cockpit .record-entry {
+  border: 0;
+  border-radius: 0;
+  background: var(--color-paper);
+  color: var(--color-graphite);
+  padding: 16px;
+}
+
+.record-value-label {
+  color: var(--color-graphite);
+}
+
+.record-value-label input {
+  min-height: 62px;
+  border: 2px solid var(--color-graphite);
+  font-family: var(--font-display);
+  font-size: 2.15rem;
+  font-weight: 600;
+}
+
+.record-note summary {
+  color: var(--color-plate-blue-dark);
+  padding-block: 8px;
+}
+
+.record-submit {
+  min-height: 52px;
+  background: var(--color-tape-orange);
+  color: var(--color-graphite);
 }
 
 fieldset {
@@ -807,6 +1102,10 @@ details form {
     gap: 12px;
   }
 
+  .session-context__controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .chart-frame {
     min-height: 180px;
   }
@@ -961,7 +1260,36 @@ details form {
   }
 
   #trainTab {
-    max-width: 860px;
+    max-width: 1120px;
+  }
+
+  #trainTab.active {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(360px, 0.85fr);
+    gap: 24px;
+    align-items: start;
+  }
+
+  #trainTab > #onboarding {
+    grid-column: 1 / -1;
+  }
+
+  #trainTab > .session-context {
+    grid-column: 1;
+    margin-bottom: 0;
+  }
+
+  #trainTab > #quickExerciseForm {
+    grid-column: 1;
+  }
+
+  #trainTab > .record-cockpit {
+    position: sticky;
+    top: 24px;
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    margin-right: 8px;
+    margin-bottom: 8px;
   }
 
   .panel {

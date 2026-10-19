@@ -106,18 +106,34 @@
           <button type="button" id="onboardingWorkoutBtn" class="secondary">Crear entrenamiento</button>
         </div>
 
-        <form id="activeWorkoutForm" class="panel stack flow-panel">
-          <div class="screen-head">
+        <form id="activeWorkoutForm" class="session-context">
+          <div class="session-context__heading">
             <div>
               <p class="eyebrow">Sesión actual</p>
-              <h2>Entrenar</h2>
+              <h1>Entrenar</h1>
             </div>
+            <span class="session-status"><i aria-hidden="true"></i> En curso</span>
           </div>
-          <label>Entrenamiento activo<select id="activeWorkoutSelect" required></select></label>
-          <label id="trainGymField" class="hidden">Gimnasio<select id="trainGymSelect"></select></label>
-          <label>Grupo muscular<select id="trainGroupSelect" required></select></label>
-          <label>Ejercicio<select id="trainExerciseSelect" required></select></label>
-          <button type="button" id="showCreateExerciseBtn" class="secondary">Crear ejercicio en este grupo</button>
+          <div class="session-context__controls">
+            <label>Entrenamiento<select id="activeWorkoutSelect" required></select></label>
+            <label id="trainGymField" class="hidden">Gimnasio<select id="trainGymSelect"></select></label>
+          </div>
+          <div class="training-browser">
+            <div>
+              <span class="field-label">Grupo muscular</span>
+              <div id="trainingGroupFilters" class="training-group-filters" role="group" aria-label="Filtrar por grupo muscular"></div>
+              <label class="visually-hidden" for="trainGroupSelect">Grupo muscular</label>
+              <select id="trainGroupSelect" class="visually-hidden" required></select>
+            </div>
+            <label class="training-search" for="trainingExerciseSearch">
+              <span>Buscar ejercicio</span>
+              <span class="search-control"><svg aria-hidden="true"><use href="assets/icons/sprite.svg#icon-search"></use></svg><input id="trainingExerciseSearch" type="search" autocomplete="off" placeholder="Press, sentadilla, remo…"></span>
+            </label>
+            <label class="visually-hidden" for="trainExerciseSelect">Ejercicio</label>
+            <select id="trainExerciseSelect" class="visually-hidden" required></select>
+            <div id="trainingExerciseList" class="training-exercise-list" aria-live="polite"></div>
+            <button type="button" id="showCreateExerciseBtn" class="text-action">+ Crear ejercicio en este grupo</button>
+          </div>
         </form>
 
         <form id="quickExerciseForm" class="panel stack inline-editor hidden">
@@ -137,15 +153,22 @@
           </div>
         </form>
 
-        <section id="exercisePanel" class="panel session-panel hidden">
+        <section id="exercisePanel" class="record-cockpit hidden">
+          <header class="record-cockpit__head">
+            <div>
+              <p class="eyebrow">Ejercicio seleccionado</p>
+              <h2 id="trainingExerciseName">Ejercicio</h2>
+            </div>
+            <span id="recordMetricBadge" class="metric-badge">kg</span>
+          </header>
           <div class="metric-grid">
-            <div class="metric-card"><span class="label">RM</span><strong id="rmValue">-</strong></div>
-            <div class="metric-card"><span class="label">Último</span><strong id="lastValue">-</strong></div>
+            <div class="metric-card metric-card--rm"><span class="label">Mejor marca</span><strong id="rmValue">-</strong></div>
+            <div class="metric-card"><span class="label">Último registro</span><strong id="lastValue">-</strong></div>
           </div>
           <div class="notes-box">
             <div class="row between">
               <span class="label">Notas del ejercicio</span>
-              <button id="editNotesBtn" type="button" class="ghost">Editar</button>
+              <button id="editNotesBtn" type="button" class="text-action">Editar</button>
             </div>
             <p id="exerciseNotes" class="muted">Sin notas.</p>
             <form id="exerciseNotesForm" class="stack hidden">
@@ -154,10 +177,12 @@
             </form>
           </div>
           <form id="recordForm" class="stack record-entry">
-            <h3>Nuevo registro</h3>
-            <label>Marca de hoy <span id="recordUnit"></span><input name="value" inputmode="decimal" required></label>
-            <label>Nota de este registro<textarea name="note" rows="3"></textarea></label>
-            <button type="submit">Guardar registro</button>
+            <label class="record-value-label">Marca de hoy <span id="recordUnit"></span><input name="value" inputmode="decimal" required placeholder="0"></label>
+            <details class="record-note">
+              <summary>Añadir nota</summary>
+              <label>Nota de este registro<textarea name="note" rows="3" placeholder="Sensaciones, técnica, material…"></textarea></label>
+            </details>
+            <button type="submit" class="record-submit">Guardar registro</button>
           </form>
         </section>
 

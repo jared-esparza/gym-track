@@ -238,6 +238,67 @@ function renderTrainingContext() {
   renderTrainingExerciseList(filterTrainingExercises(state.trainingQuery));
 }
 
+function summarizeHistory(records) {
+  if (!records.length) return { best: null, latest: null, delta: null, count: 0, metricType: null };
+  const chronological = [...records].sort((a, b) => String(a.recorded_at).localeCompare(String(b.recorded_at)));
+  const values = chronological.map((record) => Number(record.value)).filter(Number.isFinite);
+  const latestRecord = chronological[chronological.length - 1];
+  const latest = Number.isFinite(Number(latestRecord.value)) ? Number(latestRecord.value) : null;
+  const earliest = Number.isFinite(Number(chronological[0].value)) ? Number(chronological[0].value) : null;
+  return {
+    best: values.length ? Math.max(...values) : null,
+    latest,
+    delta: values.length > 1 && latest !== null && earliest !== null ? latest - earliest : null,
+    count: records.length,
+    metricType: records[0].metric_type || null,
+  };
+}
+
+function renderHistorySummary(summary) {
+  const metric = summary.metricType;
+  $('historyRecordCount').textContent = String(summary.count);
+  $('historyBestValue').textContent = summary.best === null ? '—' : formatValue(summary.best, metric);
+  $('historyLatestValue').textContent = summary.latest === null ? '—' : formatValue(summary.latest, metric);
+  $('historyDeltaValue').textContent = summary.delta === null || !metric
+    ? '—'
+    : `${summary.delta > 0 ? '+' : ''}${formatValue(summary.delta, metric)}`;
+}
+
+function historyChartOptions(values) {
+  const finiteValues = values.map(Number).filter(Number.isFinite);
+  const distinctValues = new Set(finiteValues).size;
+  const options = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      y: { beginAtZero: true, ticks: { precision: 0 } },
+      x: { grid: { display: false } },
+    },
+  };
+  if (finiteValues.length < 2 || distinctValues < 2) return options;
+  const minValue = Math.min(...finiteValues);
+  const maxValue = Math.max(...finiteValues);
+  if (minValue <= 0 && maxValue >= 0) return options;
+  const padding = (maxValue - minValue) * 0.2;
+  const roughStep = (maxValue - minValue) / 5;
+  const magnitude = Math.pow(10, Math.floor(Math.log10(roughStep)));
+  const normalizedStep = roughStep / magnitude;
+  const step = (normalizedStep <= 1 ? 1 : normalizedStep <= 2 ? 2 : normalizedStep <= 5 ? 5 : 10) * magnitude;
+  options.scales.y.beginAtZero = false;
+  options.scales.y.min = Math.floor((minValue - padding) / step) * step;
+  options.scales.y.max = Math.ceil((maxValue + padding) / step) * step;
+  return options;
+}
+
+function setHistoryGate(message) {
+  $('historyPanel').classList.remove('hidden');
+  $('historyGateMessage').textContent = message;
+  $('historyGate').classList.remove('hidden');
+  $('historySummary').classList.add('hidden');
+  $('historyChartFrame').classList.add('hidden');
+}
+
 async function selectTrainingExercise(id) {
   $('trainExerciseSelect').value = String(id);
   await loadExerciseSummary();
@@ -664,6 +725,8 @@ async function loadExercises(context) {
       if (context === 'train') {
         state.trainExercises = [];
         renderTrainingExerciseList([]);
+      } else {
+        setHistoryGate('Elige gimnasio primero para consultar el progreso.');
       }
       return;
     }
@@ -1218,7 +1281,7 @@ async function loadHistory() {
   const exerciseId = $('historyExerciseSelect').value;
   hideRecordEditForm();
   if (state.gymsEnabled && !$('historyGymSelect').value) {
-    showDesktopHistoryEmptyState();
+    setHistoryGate('Elige gimnasio primero para consultar el progreso.');
     return;
   }
   if (!exerciseId) {
@@ -1235,8 +1298,12 @@ function showDesktopHistoryEmptyState() {
     state.chart.destroy();
     state.chart = null;
   }
-  $('historyPanel').classList.toggle('hidden', !isDesktopLayout());
-  $('historyEmptyState').classList.toggle('hidden', !isDesktopLayout());
+  $('historyPanel').classList.remove('hidden');
+  $('historyGateMessage').textContent = 'Selecciona un ejercicio para ver su progreso.';
+  $('historyGate').classList.remove('hidden');
+  $('historySummary').classList.add('hidden');
+  $('historyChartFrame').classList.add('hidden');
+  $('historyEmptyState').classList.add('hidden');
   $('historyChart').classList.add('hidden');
   $('historyRows').innerHTML = '';
   $('historyCards').innerHTML = '';
@@ -1244,8 +1311,20 @@ function showDesktopHistoryEmptyState() {
 
 function renderHistory(data) {
   $('historyPanel').classList.remove('hidden');
+  $('historyGate').classList.add('hidden');
+  const summary = summarizeHistory(data.records);
+  renderHistorySummary(summary);
+  $('historySummary').classList.remove('hidden');
+  $('historyExerciseName').textContent = $('historyExerciseSelect').selectedOptions?.[0]?.textContent || 'Ejercicio';
+  $('historyGymContext').textContent = state.gymsEnabled
+    ? $('historyGymSelect').selectedOptions?.[0]?.textContent || 'Gimnasio seleccionado'
+    : 'Todos los gimnasios';
   const hasRecords = data.records.length > 0;
+  $('historyChartFrame').classList.remove('hidden');
   $('historyEmptyState').classList.toggle('hidden', hasRecords);
+  $('historyEmptyState').innerHTML = hasRecords
+    ? ''
+    : 'Aún no hay marcas para este ejercicio. <button class="text-button" type="button" data-action="train">Ir a Entrenar</button>';
   $('historyChart').classList.toggle('hidden', !hasRecords);
   renderHistoryCards(data.records);
   const rows = data.records.map((record) => `
@@ -1262,7 +1341,13 @@ function renderHistory(data) {
   `).join('');
   $('historyRows').innerHTML = rows || '<tr><td colspan="5">Sin registros.</td></tr>';
   bindHistoryActions($('historyRows'));
-  renderChart(data.chart);
+  $('historyEmptyState').querySelector('[data-action="train"]')?.addEventListener('click', () => switchTab('train'));
+  if (hasRecords) {
+    renderChart(data.chart);
+  } else if (state.chart) {
+    state.chart.destroy();
+    state.chart = null;
+  }
 }
 
 function renderHistoryCards(records) {
@@ -1290,7 +1375,8 @@ function bindHistoryActions(container) {
 function renderChart(points) {
   if (!window.Chart) {
     $('historyEmptyState').classList.remove('hidden');
-    $('historyEmptyState').textContent = 'El gráfico no está disponible sin conexión a Chart.js.';
+    $('historyChart').classList.add('hidden');
+    $('historyEmptyState').textContent = 'El gráfico no está disponible. Tus registros y métricas siguen visibles.';
     return;
   }
   const ctx = $('historyChart');
@@ -1299,9 +1385,9 @@ function renderChart(points) {
     type: 'line',
     data: {
       labels: points.map((point) => point.day),
-      datasets: [{ label: 'Mejor marca diaria', data: points.map((point) => Number(point.value)), borderColor: '#147a5b', backgroundColor: 'rgba(20,122,91,0.12)', tension: 0.25, fill: true }],
+      datasets: [{ label: 'Mejor marca diaria', data: points.map((point) => Number(point.value)), borderColor: '#b84a2f', backgroundColor: 'rgba(184,74,47,0.12)', pointBackgroundColor: '#b84a2f', pointRadius: 4, tension: 0.25, fill: true }],
     },
-    options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } },
+    options: historyChartOptions(points.map((point) => Number(point.value))),
   });
 }
 
@@ -1339,10 +1425,20 @@ function hideRecordEditForm() {
 }
 
 async function deleteRecord(id) {
-  if (!confirm('¿Eliminar este registro?')) return;
-  await api(`records&id=${encodeURIComponent(id)}`, { method: 'DELETE' });
-  hideRecordEditForm();
-  await loadHistory();
+  const confirmed = await openConfirmDialog({
+    title: 'Eliminar registro',
+    message: 'Esta marca se eliminará del histórico. Esta acción no se puede deshacer.',
+    confirmLabel: 'Eliminar registro',
+  });
+  if (!confirmed) return;
+  try {
+    await api(`records&id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+    hideRecordEditForm();
+    await loadHistory();
+    announce('Registro eliminado.', 'success');
+  } catch (error) {
+    showMessage(error.message, 'error');
+  }
 }
 
 function groupName(id) {

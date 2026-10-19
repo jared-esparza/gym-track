@@ -967,6 +967,116 @@ fieldset {
   margin-top: 10px;
 }
 
+.history-gate {
+  display: grid;
+  min-height: 180px;
+  place-items: center;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-panel);
+  background: linear-gradient(135deg, #fff 0%, var(--panel-soft) 100%);
+  color: var(--muted);
+  text-align: center;
+  padding: 24px;
+}
+
+.history-gate p {
+  max-width: 34ch;
+  margin: 0;
+}
+
+.history-summary {
+  margin-bottom: 14px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  background: var(--color-graphite);
+  color: #fff;
+}
+
+.history-summary__heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.history-summary .eyebrow {
+  color: #aeb9c9;
+}
+
+.history-summary h2 {
+  margin: 0;
+  font: 600 1.65rem/1 var(--font-display);
+  letter-spacing: 0.01em;
+}
+
+.history-context {
+  margin: 5px 0 0;
+  color: #cbd3df;
+  font-size: 0.88rem;
+}
+
+.history-count {
+  display: grid;
+  min-width: 60px;
+  text-align: right;
+  color: #cbd3df;
+  font-size: 0.78rem;
+}
+
+.history-count strong {
+  color: #fff;
+  font: 600 1.5rem/1 var(--font-display);
+}
+
+.history-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.history-metric {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--radius-control);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.history-metric span {
+  color: #cbd3df;
+  font-size: 0.72rem;
+}
+
+.history-metric strong {
+  overflow-wrap: anywhere;
+  font: 600 1.45rem/1 var(--font-display);
+  font-variant-numeric: tabular-nums;
+}
+
+.history-metric--best {
+  border-color: rgba(242, 106, 46, 0.65);
+  box-shadow: inset 3px 0 0 var(--color-tape-orange);
+}
+
+.text-button {
+  min-height: auto;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--accent-dark);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.text-button:hover {
+  background: transparent;
+  color: var(--accent);
+}
+
 .table-wrap {
   display: none;
   overflow-x: auto;
@@ -1310,6 +1420,10 @@ details form {
 
   .history-results {
     min-width: 0;
+  }
+
+  .history-gate {
+    min-height: 260px;
   }
 
   .chart-frame {

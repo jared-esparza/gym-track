@@ -202,9 +202,27 @@
           <label>Ejercicio<select id="historyExerciseSelect"></select></label>
         </form>
         <section id="historyPanel" class="panel history-results hidden">
-          <div class="chart-frame">
+          <div id="historyGate" class="history-gate hidden">
+            <p id="historyGateMessage">Selecciona un ejercicio para ver su progreso.</p>
+          </div>
+          <div id="historySummary" class="history-summary hidden">
+            <div class="history-summary__heading">
+              <div>
+                <p class="eyebrow">Evolución del ejercicio</p>
+                <h2 id="historyExerciseName">Histórico</h2>
+                <p id="historyGymContext" class="history-context"></p>
+              </div>
+              <span class="history-count"><strong id="historyRecordCount">0</strong><span>registros</span></span>
+            </div>
+            <div class="history-metrics">
+              <div class="history-metric history-metric--best"><span>Mejor marca</span><strong id="historyBestValue">—</strong></div>
+              <div class="history-metric"><span>Última marca</span><strong id="historyLatestValue">—</strong></div>
+              <div class="history-metric"><span>Cambio total</span><strong id="historyDeltaValue">—</strong></div>
+            </div>
+          </div>
+          <div id="historyChartFrame" class="chart-frame hidden">
             <canvas id="historyChart" height="180"></canvas>
-            <p id="historyEmptyState" class="empty-state hidden">Selecciona un ejercicio con registros para ver su evolución.</p>
+            <div id="historyEmptyState" class="empty-state hidden"></div>
           </div>
           <form id="recordEditForm" class="stack inline-form hidden">
             <h3>Editar registro</h3>

@@ -4,15 +4,69 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Cuaderno de hierro</title>
+    <meta name="description" content="Registra tus marcas de gimnasio, consulta tu progreso y organiza tus ejercicios a tu manera. Prueba Cuaderno de hierro sin registrarte.">
     <link rel="preload" href="assets/fonts/IBMPlexSans-Regular.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="assets/fonts/BarlowCondensed-SemiBold.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="assets/app.css">
+    <link rel="stylesheet" href="assets/welcome.css">
+    <link rel="stylesheet" href="assets/demo-tour.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" defer></script>
+    <script src="assets/demo-tour.js" defer></script>
     <script src="assets/app.js" defer></script>
   </head>
   <body>
+    <main id="welcomeView" class="welcome hidden">
+      <header class="welcome-header welcome-container">
+        <a class="welcome-brand" href="./" aria-label="Cuaderno de hierro, inicio"><span class="brand-mark" aria-hidden="true">CH</span><span>Cuaderno<br>de hierro</span></a>
+        <nav aria-label="Bienvenida">
+          <a class="welcome-how-link" href="#como-funciona">Cómo funciona</a>
+          <a href="?login=1">Iniciar sesión</a>
+          <a href="?demo=1" class="welcome-button welcome-header-demo" data-start-demo>Probar demo</a>
+        </nav>
+      </header>
+      <div id="welcomeMessage" class="notice error welcome-container hidden" role="alert"></div>
+      <section class="welcome-hero welcome-container" aria-labelledby="welcomeTitle">
+        <div class="welcome-hero-copy">
+          <p class="welcome-intro">Tu diario de entrenamiento</p>
+          <h1 id="welcomeTitle">Registra tus marcas.<br>Sigue tu progreso.</h1>
+          <p class="welcome-lead">Recuerda dónde te quedaste. Apunta lo que haces hoy y vuelve a entrenar con una referencia clara.</p>
+          <div class="welcome-hero-actions"><a href="?demo=1" id="welcomeDemoBtn" class="welcome-button" data-start-demo>Probar demo sin registrarme</a><a class="welcome-text-link" href="#como-funciona">Cómo funciona</a></div>
+          <p class="welcome-demo-note">Con ejemplos editables. Sin cuenta. Cambios temporales.</p>
+        </div>
+        <figure class="welcome-hero-photo">
+          <picture><source srcset="assets/images/gym-800.webp 800w, assets/images/gym-1600.webp 1600w" sizes="(min-width: 900px) 50vw, 100vw" type="image/webp"><img src="assets/images/gym-800.webp" width="1600" height="1067" fetchpriority="high" alt="Barra y discos de entrenamiento sobre el suelo de un gimnasio"></picture>
+          <figcaption>Entrenamiento sin ruido.</figcaption>
+        </figure>
+      </section>
+      <section class="welcome-product welcome-container" aria-labelledby="productTitle">
+        <div class="welcome-section-heading"><h2 id="productTitle">Menos memoria.<br>Más perspectiva.</h2><p>Un cuaderno sencillo para el momento en que lo necesitas: entre un ejercicio y el siguiente.</p></div>
+        <article class="welcome-story">
+          <figure class="welcome-training-shot">
+            <picture><source media="(max-width: 699px)" srcset="assets/images/training-mobile.webp"><img src="assets/images/training.webp" alt="Panel real de registro: ejercicio seleccionado, mejor marca y formulario para apuntar una marca" width="366" height="737" loading="lazy"></picture>
+            <figcaption>Entrenar · captura real de la demo con datos de ejemplo.</figcaption>
+          </figure>
+          <div class="welcome-story-copy"><h3>Tu próxima marca,<br>sin dar rodeos.</h3><p>Busca un ejercicio o crea uno sobre la marcha. Guarda tu marca en kilos, repeticiones, minutos o kilómetros.</p><p>No necesitas crear una rutina ni elegir un grupo muscular para empezar. Si hoy pruebas una máquina nueva, también tiene sitio aquí.</p><a class="welcome-text-link" href="?demo=1" data-start-demo>Explorar los ejercicios de la demo</a></div>
+        </article>
+        <article class="welcome-story welcome-story-history">
+          <div class="welcome-story-copy"><h3>Vuelve a tus marcas.<br>Reconoce tu avance.</h3><p>Consulta el historial de cada ejercicio, compara tu mejor marca con la última y mira su evolución en la gráfica.</p><p>Organiza tus ejercicios en grupos o listas de entrenamiento cuando te venga bien. Tu cuaderno se adapta a ti.</p></div>
+          <figure class="welcome-history-shot"><img src="assets/images/history.webp" width="844" height="949" loading="lazy" alt="Histórico real de la demo con resumen de marcas, gráfica de evolución y registros anteriores"><figcaption>Histórico · captura real de la demo con datos de ejemplo.</figcaption></figure>
+        </article>
+      </section>
+      <section id="como-funciona" class="welcome-how welcome-container" aria-labelledby="howTitle">
+        <div class="welcome-section-heading"><h2 id="howTitle">Del ejercicio<br>al progreso.</h2><p>Empieza con lo básico. La organización puede venir después.</p></div>
+        <ol class="welcome-steps">
+          <li><span aria-hidden="true">01</span><h3>Encuentra tu ejercicio</h3><p>Búscalo en tu catálogo o crea uno nuevo con su nombre y unidad de medida.</p></li>
+          <li><span aria-hidden="true">02</span><h3>Apunta tu marca</h3><p>Guarda el valor de hoy. Puedes añadir una nota para recordar cómo fue.</p></li>
+          <li><span aria-hidden="true">03</span><h3>Consulta tu evolución</h3><p>Vuelve al histórico para comparar tus registros y tener una referencia la próxima vez.</p></li>
+        </ol>
+        <div class="welcome-context"><picture><source srcset="assets/images/gym-context-600.webp 600w, assets/images/gym-context-1200.webp 1200w" sizes="(min-width: 900px) 45vw, 100vw"><img src="assets/images/gym-context-600.webp" width="1200" height="800" loading="lazy" alt="Persona junto a una máquina de entrenamiento en un gimnasio"></picture><div><h3>Orden cuando lo quieres.<br>Libertad cuando la necesitas.</h3><p>Grupos musculares y entrenamientos son opcionales. Puedes dejar un ejercicio sin clasificar, incluirlo en varias rutinas o registrar algo fuera de la lista que tenías prevista.</p><p>Prueba la demo con una guía breve. Puedes saltarla y explorar a tu ritmo.</p></div></div>
+      </section>
+      <section class="welcome-final" aria-labelledby="demoTitle"><div class="welcome-container"><h2 id="demoTitle">Ábrelo.<br>Pruébalo. Hazlo tuyo.</h2><div><p>El cuaderno ya tiene ejemplos para que puedas explorar, guardar una marca y ver cómo funciona.</p><a class="welcome-button" href="?demo=1" data-start-demo>Probar demo sin registrarme</a><a class="welcome-register-link" href="?register=1">Crear cuenta para guardar mis datos</a><p class="welcome-demo-note">La demo es temporal. Tu cuenta empieza con un cuaderno vacío.</p></div></div></section>
+      <footer class="welcome-footer welcome-container"><div><strong>Cuaderno de hierro</strong><span>Entrenamiento sin ruido.</span></div><a href="?login=1">Acceder a mi cuenta</a><p>Fotografías: <a href="https://www.pexels.com/photo/black-barbel-2261481/" target="_blank" rel="noopener noreferrer">Victor Freitas / Pexels</a> y <a href="https://unsplash.com/photos/a-man-standing-in-a-gym-holding-a-cell-phone-n7OGQW9qQM4" target="_blank" rel="noopener noreferrer">Sergio Kian / Unsplash</a>.</p></footer>
+    </main>
     <main id="authView" class="auth-shell hidden">
       <section class="auth-panel">
+        <a class="account-back-link" href="./">Volver al inicio</a>
         <div class="auth-brand">
           <div class="auth-brand__name">
             <span class="brand-mark" aria-hidden="true">CH</span>
@@ -20,15 +74,10 @@
           </div>
           <h1>Cuaderno de hierro</h1>
           <p class="muted">Cada sesión deja una marca. Aquí puedes seguirla.</p>
-          <div class="auth-specimen" aria-label="Ejemplo de registro de entrenamiento">
-            <span class="auth-specimen__label">Press banca</span>
-            <strong>80 <small>kg</small></strong>
-            <span class="auth-specimen__note">Última sesión · mejor marca</span>
-          </div>
         </div>
         <div id="authMessage" class="notice hidden"></div>
         <div class="demo-invitation">
-          <button type="button" id="tryDemoBtn" class="secondary">Probar demo sin registrarme</button>
+          <button type="button" id="tryDemoBtn" class="secondary" data-start-demo>Probar demo sin registrarme</button>
           <p class="muted">Explora con datos de ejemplo y prueba todas las funciones. Los cambios son temporales.</p>
         </div>
 
@@ -109,6 +158,7 @@
         <div><strong>Demo · cambios temporales</strong><p>Tus pruebas solo se guardan durante esta sesión. Al crear una cuenta empezarás con tu cuaderno vacío.</p></div>
         <div class="action-row">
           <button id="resetDemoBtn" type="button" class="secondary">Reiniciar demo</button>
+          <button id="demoGuideBtn" type="button" class="secondary">Ver guía</button>
           <button id="demoRegisterBtn" type="button" class="secondary">Crear cuenta</button>
           <button id="exitDemoBtn" type="button" class="ghost">Salir</button>
         </div>
@@ -456,5 +506,15 @@
         </div>
       </dialog>
     </main>
+    <dialog id="demoTourDialog" class="demo-tour-dialog" aria-labelledby="demoTourTitle" aria-describedby="demoTourText">
+      <div id="demoTourSpotlight" class="demo-tour-spotlight" hidden aria-hidden="true"></div>
+      <section id="demoTourPanel" class="demo-tour-panel">
+        <span id="demoTourProgress" class="demo-tour-progress" aria-live="polite"></span>
+        <h2 id="demoTourTitle">Tu cuaderno de prueba</h2>
+        <p id="demoTourText" aria-live="polite"></p>
+        <div class="demo-tour-actions"><button type="button" id="demoTourBack" class="secondary">Atrás</button><button type="button" id="demoTourNext">Siguiente</button><button type="button" id="demoTourSkip" class="ghost">Saltar tour</button></div>
+      </section>
+    </dialog>
+    <noscript>Activa JavaScript para acceder a Cuaderno de hierro y probar la demo.</noscript>
   </body>
 </html>

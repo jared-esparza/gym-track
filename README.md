@@ -26,6 +26,9 @@ The project focuses on a practical workout flow: find or create an exercise, opt
 
 ## Screens and Workflow
 
+- **Welcome**: editorial product introduction, locally hosted gym photography, real demo screenshots and a demo-first entry point. Account access is available at `?login=1`.
+- **Demo guide**: optional six-step explanation, shown once per browser and replayable with “Ver guía”. It never changes demo data.
+
 - **Auth**: login, registration, email verification, forgotten password and reset password.
 - **Train**: opens the whole catalogue. Find or create an exercise and save a mark. Routine and group filters are optional. “Todos los ejercicios” lets you record an external exercise while preserving the selected routine, without adding it to that list.
 - **History**: filter by group/exercise, review best/latest/change/count metrics and the daily-best graph, edit records or delete them after confirmation.
@@ -177,5 +180,6 @@ This is a functional V1 with the Cuaderno de hierro interface implemented across
 
 ## Documentation
 
+- [Welcome and demo tour](docs/WELCOME_AND_DEMO_TOUR.md)
 - [Project structure guide](docs/PROJECT_STRUCTURE.md)
 - [Technical/project context](PROJECT_CONTEXT.md)

@@ -46,6 +46,8 @@ const MANAGEMENT_FORM_LAYOUTS = [
 const $ = (id) => document.getElementById(id);
 let activeConfirmResolver = null;
 let confirmReturnFocus = null;
+let demoTour = null;
+let demoStarting = false;
 
 function isDesktopLayout() {
   return desktopMediaQuery.matches;
@@ -316,9 +318,11 @@ function setHistoryGate(message) {
   $('historyChartFrame').classList.add('hidden');
 }
 
-async function selectTrainingExercise(id) {
+async function selectTrainingExercise(id, cancelled = () => false) {
+  if (cancelled()) return;
   $('trainExerciseSelect').value = String(id);
-  await loadExerciseSummary();
+  await loadExerciseSummary(cancelled);
+  if (cancelled()) return;
   renderTrainingExerciseList(filterTrainingExercises(state.trainingQuery));
 }
 
@@ -355,6 +359,14 @@ function formData(form) {
 async function init() {
   bindAuth();
   bindApp();
+  if (window.DemoTour) {
+    demoTour = new window.DemoTour({
+      isDemo: () => Boolean(state.user?.is_demo),
+      prepare: prepareDemoTourStep,
+      finish: finishDemoTour,
+      report: (error) => showMessage(`No se pudo cargar la guía. Puedes volver a abrirla con «Ver guía». ${error.message}`, 'error'),
+    });
+  }
   const params = new URLSearchParams(location.search);
   if (params.get('verified')) showMessage('Email verificado. Ya puedes iniciar sesión.', 'ok', $('authMessage'));
   if (params.get('reset')) {
@@ -370,17 +382,28 @@ async function init() {
     state.user = me.user;
     await showApp();
   } else {
-    showAuth();
+    if (params.has('login') || params.has('register') || params.has('reset') || params.has('verified')) showAuth();
+    else showWelcome();
     if (params.has('demo')) await startDemo();
   }
 }
 
 function showAuth() {
+  demoTour?.stop();
+  $('welcomeView').classList.add('hidden');
   $('authView').classList.remove('hidden');
   $('appView').classList.add('hidden');
 }
 
+function showWelcome() {
+  demoTour?.stop();
+  $('welcomeView').classList.remove('hidden');
+  $('authView').classList.add('hidden');
+  $('appView').classList.add('hidden');
+}
+
 async function showApp() {
+  $('welcomeView').classList.add('hidden');
   $('authView').classList.add('hidden');
   $('appView').classList.remove('hidden');
   $('userEmail').textContent = state.user.is_demo ? 'Demo · cambios temporales' : state.user.email;
@@ -388,9 +411,15 @@ async function showApp() {
   $('demoBanner').classList.toggle('hidden', !state.user.is_demo);
   await loadBootstrap();
   switchTab(getDefaultTab());
+  if (state.user.is_demo) await demoTour?.start();
 }
 
 async function startDemo() {
+  if (demoStarting) return;
+  demoStarting = true;
+  document.querySelectorAll('[data-start-demo]').forEach((button) => button.setAttribute('aria-disabled', 'true'));
+  clearMessage($('welcomeMessage'));
+  clearMessage($('authMessage'));
   try {
     const data = await send('demo-start');
     state.user = data.user;
@@ -400,18 +429,27 @@ async function startDemo() {
     history.replaceState(null, '', '?demo=1');
     await showApp();
   } catch (error) {
-    showMessage(error.message, 'error', $('authMessage'));
+    const target = $('welcomeView').classList.contains('hidden') ? $('authMessage') : $('welcomeMessage');
+    showMessage(error.message, 'error', target);
+    target.scrollIntoView({ block: 'center' });
+  } finally {
+    demoStarting = false;
+    document.querySelectorAll('[data-start-demo]').forEach((button) => button.removeAttribute('aria-disabled'));
   }
 }
 
 async function exitDemo(register = false) {
+  demoTour?.stop();
   await send('logout');
   // Reload clears editors, selections and cached data before entering a real account.
   location.assign(location.pathname + (register ? '?register=1' : ''));
 }
 
 function bindAuth() {
-  $('tryDemoBtn').addEventListener('click', startDemo);
+  document.querySelectorAll('[data-start-demo]').forEach((button) => button.addEventListener('click', (event) => {
+    event.preventDefault();
+    startDemo();
+  }));
   $('showRegisterBtn').addEventListener('click', () => showAuthMode('register'));
   $('showForgotBtn').addEventListener('click', () => showAuthMode('forgot'));
   $('backToLoginFromRegisterBtn').addEventListener('click', () => showAuthMode('login'));
@@ -547,6 +585,7 @@ function renderOnboardingState(progress) {
 }
 
 function bindApp() {
+  $('demoGuideBtn').addEventListener('click', () => demoTour?.start(true));
   $('resetDemoBtn').addEventListener('click', async () => {
     if (!await openConfirmDialog({ title: 'Reiniciar demo', message: 'Se descartarán tus cambios y volverán los datos de ejemplo.', confirmLabel: 'Reiniciar' })) return;
     try { await send('demo-reset'); location.reload(); } catch (error) { showMessage(error.message, 'error'); }
@@ -633,6 +672,68 @@ function bindApp() {
   $('importForm').addEventListener('submit', previewImport);
   $('confirmImportBtn').addEventListener('click', confirmImport);
   $('cancelImportBtn').addEventListener('click', cancelImport);
+}
+
+async function prepareDemoTourStep(index, cancelled = () => false) {
+  if (index === 0) return $('demoBanner');
+  if (index === 5) {
+    switchTab('manageTab');
+    openManageSection('exercises');
+    return document.querySelector('[data-manage-section="exercises"]');
+  }
+  // Only UI selections and GET requests: the tour never edits a mark or preference.
+  if (state.gymsEnabled && !$('trainGymSelect').value && state.gyms.length) {
+    $('trainGymSelect').value = state.gyms[0].id;
+  }
+  if (index === 1 || index === 2 || index === 4) {
+    switchTab('trainTab');
+    $('activeWorkoutSelect').value = '';
+    state.catalogScope = 'all';
+    await loadActiveWorkout(true, cancelled);
+    if (cancelled()) return null;
+  }
+  if (index === 1) return document.querySelector('.training-browser');
+  if (index === 2) {
+    const example = state.trainExercises.find((exercise) => Number(exercise.record_count) > 0) || state.trainExercises[0];
+    if (example) {
+      await selectTrainingExercise(example.id, cancelled);
+      if (cancelled()) return null;
+      return $('recordForm');
+    }
+    return document.querySelector('.training-browser');
+  }
+  if (index === 3) {
+    switchTab('trainTab');
+    $('activeWorkoutSelect').value = state.workouts[0]?.id || '';
+    await loadActiveWorkout(true, cancelled);
+    return cancelled() ? null : $('activeWorkoutForm');
+  }
+  if (index === 4) {
+    const examples = state.trainExercises;
+    switchTab('historyTab');
+    if (state.gymsEnabled) $('historyGymSelect').value = $('trainGymSelect').value || 'none';
+    $('historyGroupSelect').value = '';
+    await loadExercises('history', cancelled);
+    if (cancelled()) return null;
+    const example = examples.find((exercise) => Number(exercise.record_count) > 0) || examples[0];
+    if (example) {
+      $('historyExerciseSelect').value = example.id;
+      await loadHistory(cancelled);
+      if (cancelled()) return null;
+      return $('historySummary').classList.contains('hidden') ? $('historyTab') : $('historySummary');
+    }
+    return $('historyTab');
+  }
+  return null;
+}
+
+async function finishDemoTour() {
+  if (!state.user?.is_demo) return;
+  switchTab('trainTab');
+  $('activeWorkoutSelect').value = '';
+  state.catalogScope = 'all';
+  await loadActiveWorkout();
+  $('trainingExerciseSearch').scrollIntoView({ block: 'center' });
 }
 
 function switchTab(tabId) {
@@ -846,7 +947,8 @@ function updateCatalogScope() {
     : 'Catálogo completo. Elige un ejercicio o crea uno para registrar una marca.';
 }
 
-async function loadActiveWorkout(resetScope = true) {
+async function loadActiveWorkout(resetScope = true, cancelled = () => false) {
+  if (cancelled()) return;
   const workoutId = $('activeWorkoutSelect').value;
   $('exercisePanel').classList.add('hidden');
   state.activeExercise = null;
@@ -854,6 +956,7 @@ async function loadActiveWorkout(resetScope = true) {
   state.activeWorkoutExerciseIds = [];
   if (workoutId) {
     const data = await api(`workout&id=${encodeURIComponent(workoutId)}`);
+    if (cancelled()) return;
     state.activeWorkout = data.workout;
     state.activeWorkoutExerciseIds = data.exercise_ids.map(Number);
   }
@@ -865,7 +968,7 @@ async function loadActiveWorkout(resetScope = true) {
   $('trainingExerciseSearch').value = '';
   updateCatalogScope();
   renderTrainingGroups(state.groups);
-  await loadExercises('train');
+  await loadExercises('train', cancelled);
 }
 
 function workoutIdForExercise(exerciseId) {
@@ -873,7 +976,8 @@ function workoutIdForExercise(exerciseId) {
   return workoutId && state.activeWorkoutExerciseIds.includes(Number(exerciseId)) ? workoutId : null;
 }
 
-async function loadExercises(context) {
+async function loadExercises(context, cancelled = () => false) {
+  if (cancelled()) return;
   const groupSelect = context === 'train' ? $('trainGroupSelect') : $('historyGroupSelect');
   const exerciseSelect = context === 'train' ? $('trainExerciseSelect') : $('historyExerciseSelect');
   if (context === 'train') $('exercisePanel').classList.add('hidden');
@@ -904,6 +1008,7 @@ async function loadExercises(context) {
     return;
   }
   const data = await api(url);
+  if (cancelled()) return;
   const emptyPlaceholder = data.exercises.length ? 'Elige ejercicio' : emptyExercisePlaceholder(context, groupSelect.value);
   fillExerciseSelect(exerciseSelect, data.exercises, emptyPlaceholder, !groupSelect.value);
   if (context === 'train') {
@@ -960,7 +1065,8 @@ async function createExercise(event) {
   }
 }
 
-async function loadExerciseSummary() {
+async function loadExerciseSummary(cancelled = () => false) {
+  if (cancelled()) return;
   const exerciseId = $('trainExerciseSelect').value;
   if (state.gymsEnabled && !$('trainGymSelect').value) {
     state.activeExercise = null;
@@ -978,6 +1084,7 @@ async function loadExerciseSummary() {
   }
   const gymParam = state.gymsEnabled ? `&gym_id=${encodeURIComponent($('trainGymSelect').value)}` : '';
   const data = await api(`exercise-summary&exercise_id=${encodeURIComponent(exerciseId)}${gymParam}`);
+  if (cancelled()) return;
   state.activeExercise = data.exercise;
   state.previousRm = data.rm === null || data.rm === undefined ? null : Number(data.rm);
   $('trainingExerciseName').textContent = data.exercise.name;
@@ -1485,7 +1592,10 @@ function importSummaryMessage(summary = {}) {
   return `Importacion aplicada: ${summary.gyms || 0} gimnasios, ${summary.workouts || 0} entrenamientos, ${summary.exercises || 0} ejercicios, ${summary.records || 0} registros.`;
 }
 
-async function loadHistory() {
+async function loadHistory(cancelled = () => false) {
+  // DOM event listeners pass an Event; only explicit tour callbacks cancel rendering.
+  if (typeof cancelled !== 'function') cancelled = () => false;
+  if (cancelled()) return;
   const exerciseId = $('historyExerciseSelect').value;
   hideRecordEditForm();
   if (state.gymsEnabled && !$('historyGymSelect').value) {
@@ -1498,6 +1608,7 @@ async function loadHistory() {
   }
   const gymParam = state.gymsEnabled ? `&gym_id=${encodeURIComponent($('historyGymSelect').value)}` : '';
   const data = await api(`history&exercise_id=${encodeURIComponent(exerciseId)}${gymParam}`);
+  if (cancelled()) return;
   renderHistory(data);
 }
 

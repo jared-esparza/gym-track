@@ -1,5 +1,9 @@
 # Gym Tracker - Project Context
 
+## Actualización 2026-10-22: bienvenida y tour
+
+La raíz muestra ahora una presentación comercial con fotos locales y capturas reales de la demo. El acceso está en `?login=1`; se mantienen registro, reset, verificación y demo directa. Las sesiones activas entran en la app. La guía explicativa de seis pasos es exclusiva de la demo, aparece una vez por navegador y puede repetirse con «Ver guía». Su controlador está en `public/assets/demo-tour.js` y admite cancelación de respuestas asíncronas. Los estilos públicos viven en `welcome.css` y `demo-tour.css`. No hay cambios de API ni esquema. Detalles: `docs/WELCOME_AND_DEMO_TOUR.md`; créditos: `public/assets/images/CREDITS.md`.
+
 ## Actualización 2026-10-19: demo y entrenamiento flexible
 
 Esta sección sustituye las descripciones históricas de jerarquía obligatoria que aparecen más abajo.

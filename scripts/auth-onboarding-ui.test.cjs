@@ -78,7 +78,8 @@ context.api = async () => ({ exercises: [
 api.loadOnboardingProgress().then((progress) => {
   assert.deepEqual(JSON.parse(JSON.stringify(progress)), { workouts: 0, exercises: 3, records: 5 });
   assert.match(html, /class="auth-brand"/);
-  assert.match(html, /Press banca/i);
+  assert.doesNotMatch(html, /auth-specimen/);
+  assert.match(html, /id="welcomeView"/);
   assert.match(css, /\.onboarding-steps/);
 }).catch((error) => {
   console.error(error);

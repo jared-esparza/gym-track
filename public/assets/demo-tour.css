@@ -1,0 +1,13 @@
+.demo-tour-dialog { position: fixed; inset: 0; width: 100%; max-width: none; height: 100%; max-height: none; margin: 0; padding: 0; border: 0; background: transparent; overflow: hidden; color: var(--ink); }
+body.demo-tour-active { padding-bottom: 70vh; }
+.demo-tour-dialog { background: rgba(17, 24, 39, .6); }
+.demo-tour-dialog.has-target, .demo-tour-dialog::backdrop { background: transparent; }
+.demo-tour-spotlight { position: fixed; pointer-events: none; border: 3px solid var(--color-tape-orange); border-radius: 8px; box-shadow: 0 0 0 4px rgba(255,255,255,.65), 0 0 0 100vmax rgba(17,24,39,.6); }
+.demo-tour-panel { position: fixed; width: min(360px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow-y: auto; background: var(--color-paper); border-top: 4px solid var(--color-tape-orange); padding: 22px; border-radius: 6px; box-shadow: 0 12px 40px rgba(0,0,0,.25); }
+.demo-tour-panel h2 { margin: 8px 0 12px; font: 600 1.9rem/1.05 var(--font-display); }
+.demo-tour-panel p { margin: 0 0 18px; line-height: 1.6; }
+.demo-tour-progress { color: var(--muted); font-size: .8rem; }
+.demo-tour-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.demo-tour-actions #demoTourSkip { width: 100%; margin-top: 4px; }
+.demo-tour-actions #demoTourNext { flex: 1; }
+@media (max-width: 699px) { .demo-tour-panel { padding: 18px; max-height: 55dvh; } .demo-tour-panel h2 { font-size: 1.65rem; } .demo-tour-panel p { font-size: .875rem; margin-bottom: 12px; } }
